@@ -35,7 +35,7 @@
    without prior written permission.
 */
 
-#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris) || defined(VGO_netbsd)
 
 /* REFERENCE (without which this code will not make much sense):
 
@@ -5269,7 +5269,8 @@ ML_(new_dwarf3_reader) (
    TRACE_SYMTAB("\n");
 #endif
 
-#endif // defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
+#endif /* defined(VGO_linux) || defined(VGO_darwin) ||
+          defined(VGO_solaris) || defined(VGO_netbsd) */
 
 /*--------------------------------------------------------------------*/
 /*--- end                                                          ---*/

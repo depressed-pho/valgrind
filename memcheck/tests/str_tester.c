@@ -467,7 +467,7 @@ test_strchr (void)
 }
 
 // DDD: better done by testing for the function.
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(__NetBSD__)
 static void
 test_strchrnul (void)
 {
@@ -504,7 +504,7 @@ test_strchrnul (void)
 #endif
 
 // DDD: better done by testing for the function.
-#if !defined(__APPLE__) && !defined(__sun)
+#if !defined(__APPLE__) && !defined(__sun) && !defined(__NetBSD__)
 static void
 test_rawmemchr (void)
 {
@@ -902,7 +902,7 @@ test_strsep (void)
   equal(one+4, "c", 50);
 
   {
-#   if !defined(__APPLE__)
+#   if !defined(__APPLE__) && !defined(__NetBSD__)
     char text[] = "This,is,a,test";
     char *list = strdupa (text);
     equal (strsep (&list, ","), "This", 51);
@@ -1063,7 +1063,7 @@ test_memcpy (void)
     }
 }
 
-#if !defined(__APPLE__) && !defined(__sun)
+#if !defined(__APPLE__) && !defined(__sun) && !defined(__NetBSD__)
 static void
 test_mempcpy (void)
 {
@@ -1437,12 +1437,12 @@ main (void)
   /* strchr.  */
   test_strchr ();
 
-# if !defined(__APPLE__)
+# if !defined(__APPLE__) && !defined(__NetBSD__)
   /* strchrnul.  */
   test_strchrnul ();
 # endif
 
-# if !defined(__APPLE__) && !defined(__sun)
+# if !defined(__APPLE__) && !defined(__sun) && !defined(__NetBSD__)
   /* rawmemchr.  */
   test_rawmemchr ();
 # endif
@@ -1494,7 +1494,7 @@ main (void)
   /* memmove - must work on overlap.  */
   test_memmove ();
 
-# if !defined(__APPLE__) && !defined(__sun)
+# if !defined(__APPLE__) && !defined(__sun) && !defined(__NetBSD__)
   /* mempcpy */
   test_mempcpy ();
 # endif

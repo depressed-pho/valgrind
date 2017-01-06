@@ -1949,7 +1949,8 @@ Int valgrind_main ( Int argc, HChar **argv, HChar **envp )
    if (!need_help) {
       VG_(debugLog)(1, "main", "Create initial image\n");
 
-#     if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
+#     if defined(VGO_linux) || defined(VGO_darwin) || \
+         defined(VGO_solaris) || defined(VGO_netbsd)
       the_iicii.argv              = argv;
       the_iicii.envp              = envp;
       the_iicii.toolname          = toolname;
@@ -2216,7 +2217,7 @@ Int valgrind_main ( Int argc, HChar **argv, HChar **envp )
    addr2dihandle = VG_(newXA)( VG_(malloc), "main.vm.2",
                                VG_(free), sizeof(Addr_n_ULong) );
 
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    { Addr* seg_starts;
      Int   n_seg_starts;
      Addr_n_ULong anu;
@@ -3612,6 +3613,113 @@ void _start_in_C_solaris ( UWord* pArgc )
    the_iicii.sp_at_startup = (Addr)pArgc;
 
    r = valgrind_main((Int)argc, argv, envp);
+   /* NOTREACHED */
+   VG_(exit)(r);
+}
+
+/*====================================================================*/
+/*=== Getting to main() alive: NetBSD                              ===*/
+/*====================================================================*/
+
+#elif defined(VGO_netbsd)
+
+/*
+ * Upon entering the entry point we have the following context,
+ * Ref. _rtld() in libexec/ld.elf_so/rtld.c,
+ * Ref. __start in lib/csu/arch/x86_64/crt0.S:
+ *
+ *   %rdx
+ *     (Only for dyn exec) Contains a function pointer to be
+ *     registered with `atexit'. This is how the dynamic linker
+ *     arranges to have DT_FINI functions called for shared libraries
+ *     that have been loaded before this code runs.
+ *
+ *   %rcx
+ *     (Only for dyn exec) Contains a pointer to rtld private
+ *     Obj_Entry for the main object, used for sanity checks in
+ *     `crt0.o'.
+ *
+ *   %rbx
+ *     Contains a pointer to struct ps_string, which is itself located
+ *     somewhere on the stack, Ref. <sys/exec.h>
+ *
+ *   %rsp
+ *     The stack contains the arguments and environment:
+ *       sp=> argc
+ *            argv[0]
+ *            ...
+ *            NULL
+ *            envp[0]
+ *            ...
+ *            NULL
+ *            auxv...
+ */
+
+/* The kernel hands control to _start, which extracts the initial
+ * stack pointer and calls onwards to _start_in_C_netbsd. This also
+ * switches to the new stack.
+ */
+#  if defined(VGP_amd64_netbsd)
+__asm__ (
+    ".text\n"
+    ".align 16\n"
+    ".globl _start\n"
+    ".type  _start, @function\n"
+    "_start:\n"
+    /* set up the new stack in %rdi */
+    "movq  $vgPlain_interim_stack, %rdi\n"
+    "addq  $"VG_STRINGIFY(VG_STACK_GUARD_SZB)", %rdi\n"
+    "addq  $"VG_STRINGIFY(VG_DEFAULT_STACK_ACTIVE_SZB)", %rdi\n"
+    "andq  $-15, %rdi\n"
+    /* install it, and collect the original one */
+    "xchgq %rdi, %rsp\n"
+    /* call _start_in_C_netbsd, passing it the startup %rsp. */
+    "call  _start_in_C_netbsd\n"
+    /* NOTREACHED */
+    "hlt\n"
+    ".previous\n"
+    );
+
+#  else
+#    error "Unknown architecture"
+#  endif
+
+void* memcpy(void *dest, const void *src, SizeT n);
+void* memcpy(void *dest, const void *src, SizeT n) {
+   return VG_(memcpy)(dest,src,n);
+}
+void* memmove(void *dest, const void *src, SizeT n);
+void* memmove(void *dest, const void *src, SizeT n) {
+   return VG_(memmove)(dest,src,n);
+}
+void* memset(void *s, int c, SizeT n);
+void* memset(void *s, int c, SizeT n) {
+  return VG_(memset)(s,c,n);
+}
+
+/* Avoid compiler warnings: this fn _is_ used, but labelling it
+ * 'static' causes gcc to complain it isn't.  attribute 'used' also
+ * ensures the code is not eliminated at link time */
+__attribute__((__used__))
+void _start_in_C_netbsd ( UWord* pArgc );
+void _start_in_C_netbsd ( UWord* pArgc ) {
+   Int     r;
+   Word    argc = pArgc[0];
+   HChar** argv = (HChar**)&pArgc[1];
+   HChar** envp = (HChar**)&pArgc[1+argc+1];
+
+   /* See _start_in_C_linux */
+   INNER_REQUEST
+       ((void) VALGRIND_STACK_REGISTER
+        (&VG_(interim_stack).bytes[0],
+         &VG_(interim_stack).bytes[0] + sizeof(VG_(interim_stack))));
+
+   VG_(memset)( &the_iicii, 0, sizeof(the_iicii) );
+   VG_(memset)( &the_iifii, 0, sizeof(the_iifii) );
+
+   the_iicii.sp_at_startup = (Addr)pArgc;
+
+   r = valgrind_main( (Int)argc, argv, envp );
    /* NOTREACHED */
    VG_(exit)(r);
 }

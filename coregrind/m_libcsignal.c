@@ -216,7 +216,7 @@ void VG_(sigcomplementset)( vki_sigset_t* dst, const vki_sigset_t* src )
 */
 Int VG_(sigprocmask)( Int how, const vki_sigset_t* set, vki_sigset_t* oldset)
 {
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
 #  if defined(__NR_rt_sigprocmask)
    SysRes res = VG_(do_syscall4)(__NR_rt_sigprocmask, 
                                  how, (UWord)set, (UWord)oldset, 
@@ -255,6 +255,40 @@ void darwin_signal_demux(void* a1, UWord a2, UWord a3, void* a4, void* a5) {
    /* NOTREACHED */
    __asm__ __volatile__("ud2");
 }
+#endif
+
+#if defined(VGO_netbsd)
+/* On NetBSD signal trampolines, used for restoring the context on
+ * returning from a signal handler, are user-supplied. So we have to
+ * replicate what libc does here. Please note that they have a special
+ * naming convention, see signal(9).
+ */
+extern const int __sigtramp_siginfo_2[] __attribute__((__visibility__("hidden")));
+
+#  if defined(VGA_amd64)
+__asm__ (
+   ".text\n"
+   ".align  16\n"
+   ".globl  __sigtramp_siginfo_2\n"
+   ".hidden __sigtramp_siginfo_2\n"
+   ".type   __sigtramp_siginfo_2, @function\n"
+   "__sigtramp_siginfo_2:\n"
+   /* ucontext_t* is supposed to be saved in %r15 in this trampoline
+    * ABI */
+   "movq    %r15, %rdi\n" /* %rdi = the address of ucontext */
+   "movq    $"VG_STRINGIFY(__NR_setcontext)", %rax\n"
+   "syscall\n"            /* setcontext() */
+   /* If we return here it means the setcontext() call has failed. */
+   "movq    $-1, %rdi\n"
+   "movq    $"VG_STRINGIFY(__NR_exit)", %rax\n"
+   "syscall\n"            /* _exit(-1) */
+   ".size   __sigtramp_siginfo_2, . - __sigtramp_siginfo_2\n"
+   ".previous"
+);
+
+#  else
+#    error "Unknown architecture"
+#  endif
 #endif
 
 Int VG_(sigaction) ( Int signum, 
@@ -320,6 +354,26 @@ Int VG_(sigaction) ( Int signum,
                                  signum, (UWord)act, (UWord)oldact);
    return sr_isError(res) ? -1 : 0;
 
+#  elif defined(VGO_netbsd)
+   /* We use our own trampoline and ignore whatever the client program
+    * provided because we don't want those trampolines to be run
+    * directly.
+    */
+   SysRes res;
+   vki_sigaction_fromK_t  actCopy;
+   vki_sigaction_fromK_t* real_act = act ? &actCopy : NULL;
+
+   if (real_act) {
+       real_act->ksa_handler = act->ksa_handler;
+       real_act->sa_mask     = act->sa_mask;
+       real_act->sa_flags    = act->sa_flags;
+   }
+
+   res = VG_(do_syscall5)(__NR_sigaction_sigtramp,
+                                 signum, (UWord)real_act, (UWord)oldact,
+                                 (UWord)__sigtramp_siginfo_2, 2);
+   return sr_isError(res) ? -1 : 0;
+
 #  else
 #    error "Unsupported OS"
 #  endif
@@ -334,10 +388,16 @@ VG_(convert_sigaction_fromK_to_toK)( const vki_sigaction_fromK_t* fromK,
 #  if defined(VGO_linux) || defined(VGO_solaris)
    *toK = *fromK;
 #  elif defined(VGO_darwin)
-   toK->ksa_handler = fromK->ksa_handler;
-   toK->sa_tramp    = NULL; /* the cause of all the difficulty */
-   toK->sa_mask     = fromK->sa_mask;
-   toK->sa_flags    = fromK->sa_flags;
+   toK->ksa_handler  = fromK->ksa_handler;
+   toK->sa_tramp     = NULL; /* the cause of all the difficulty */
+   toK->sa_mask      = fromK->sa_mask;
+   toK->sa_flags     = fromK->sa_flags;
+#  elif defined(VGO_netbsd)
+   toK->ksa_handler  = fromK->ksa_handler;
+   toK->sa_mask      = fromK->sa_mask;
+   toK->sa_flags     = fromK->sa_flags;
+   toK->sa_tramp     = NULL;
+   toK->sa_tramp_abi = -1;
 #  else
 #    error "Unsupported OS"
 #  endif
@@ -346,7 +406,7 @@ VG_(convert_sigaction_fromK_to_toK)( const vki_sigaction_fromK_t* fromK,
 
 Int VG_(kill)( Int pid, Int signo )
 {
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall2)(__NR_kill, pid, signo);
 #  elif defined(VGO_darwin)
    SysRes res = VG_(do_syscall3)(__NR_kill,
@@ -385,6 +445,11 @@ Int VG_(tkill)( Int lwpid, Int signo )
 #     else
          res = VG_(do_syscall2)(__NR_lwp_kill, lwpid, signo);
 #     endif
+   return sr_isError(res) ? -1 : 0;
+
+#  elif defined(VGO_netbsd)
+   SysRes res;
+   res = VG_(do_syscall2)(__NR_lwp_kill, lwpid, signo);
    return sr_isError(res) ? -1 : 0;
 
 #  else
@@ -540,7 +605,9 @@ Int VG_(sigtimedwait_zero)( const vki_sigset_t *set,
   return i;
 }
 
-#elif defined(VGO_solaris)
+/* ---------- sigtimedwait_zero: Solaris / NetBSD ----------- */
+
+#elif defined(VGO_solaris) || defined(VGO_netbsd)
 Int VG_(sigtimedwait_zero)( const vki_sigset_t *set, vki_siginfo_t *info )
 {
    /* Trivial as on Linux. */

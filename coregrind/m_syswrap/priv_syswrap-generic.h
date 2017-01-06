@@ -69,9 +69,6 @@ extern void ML_(record_fd_open_with_given_name)(ThreadId tid, Int fd,
 
 // Return true if a given file descriptor is already recorded.
 extern Bool ML_(fd_recorded)(Int fd);
-// Returns a pathname representing a recorded fd.
-// Returned string must not be modified nor free'd.
-extern const HChar *ML_(find_fd_recorded_by_fd)(Int fd);
 
 // Used when killing threads -- we must not kill a thread if it's the thread
 // that would do Valgrind's final cleanup and output.

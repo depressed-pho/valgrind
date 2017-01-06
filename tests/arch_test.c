@@ -44,7 +44,7 @@ static Bool go(char* arch)
    if ( 0 == strcmp( arch, "x86"   ) ) return True;
 
 #elif defined(VGP_amd64_linux) || defined(VGP_amd64_darwin) \
-   || defined(VGP_amd64_solaris)
+   || defined(VGP_amd64_solaris) || defined(VGP_amd64_netbsd)
 #if defined(VGA_SEC_x86)
    if ( 0 == strcmp( arch, "x86"   ) ) return True;
 #endif

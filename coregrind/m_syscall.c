@@ -342,6 +342,37 @@ SysRes VG_(mk_SysRes_amd64_solaris) ( Bool isErr, ULong val, ULong val2 )
    return res;
 }
 
+#elif defined(VGO_netbsd)
+
+extern SysRes VG_(mk_SysRes_amd64_netbsd)( Bool isErr, ULong val, ULong val2 ) {
+   SysRes res;
+
+   // stay sane
+   vg_assert(isErr == True || isErr == False);
+
+   res._val     = val;
+   res._val2    = val2;
+   res._isError = isErr;
+   return res;
+}
+
+/* Generic constructors. */
+SysRes VG_(mk_SysRes_Error) ( UWord err ) {
+   SysRes r;
+   r._val     = err;
+   r._val2    = 0;
+   r._isError = True;
+   return r;
+}
+
+SysRes VG_(mk_SysRes_Success) ( UWord res ) {
+   SysRes r;
+   r._val     = res;
+   r._val2    = 0;
+   r._isError = False;
+   return r;
+}
+
 #else
 #  error "Unknown OS"
 #endif
@@ -936,6 +967,39 @@ __asm__ (
 ".previous\n"
 );
 
+#elif defined(VGP_amd64_netbsd)
+
+extern UWord
+do_syscall_WRK(UWord a1, UWord a2, UWord a3,    /* rdi, rsi, rdx */
+               UWord a4, UWord a5, UWord a6,    /* rcx, r8, r9 */
+               UWord a7, UWord a8,              /* 8(rsp), 16(rsp) */
+               UWord syscall_no,                /* 24(rsp) */
+               /*OUT*/UWord *errflag,           /* 32(rsp) */
+               /*OUT*/UWord *res2);             /* 40(rsp) */
+/* First 6 parameters in registers rdi, rsi, rdx, r10, r8, r9, next
+ * 2 parameters on the stack, an unused (by the kernel) return address at
+ * 0(rsp), a sysno in rax, a result in rdx:rax, the carry flag set on
+ * error. */
+__asm__ (
+   ".text\n"
+   ".globl do_syscall_WRK\n"
+   ".type  do_syscall_WRK, @function\n"
+   "do_syscall_WRK:\n"
+   "       movq    %rcx, %r10\n"     /* pass %rcx in %r10 instead */
+   "       movq    32(%rsp), %rcx\n" /* *errflag = 0; assume syscall success */
+   "       movq    $0, (%rcx)\n"
+   "       movq    24(%rsp), %rax\n" /* %rax = syscall_no */
+   "       syscall\n"
+   "       jnc     1f\n"             /* goto 1 if success */
+   "       movq    32(%rsp), %rcx\n" /* *errflag = 1 */
+   "       movq    $1, (%rcx)\n"
+   "1:     movq    40(%rsp), %rcx\n" /* *res2 = %rdx */
+   "       movq    %rdx, (%rcx)\n"
+   "       ret\n"
+   ".size do_syscall_WRK, . - do_syscall_WRK\n"
+   ".previous\n"
+);
+
 #else
 #  error Unknown platform
 #endif
@@ -1124,6 +1188,12 @@ SysRes VG_(do_syscall) ( UWord sysno, UWord a1, UWord a2, UWord a3,
 
    return VG_(mk_SysRes_amd64_solaris)(err ? True : False, val,
                                        err ? 0 : val2);
+
+#elif defined(VGP_amd64_netbsd)
+   UWord val, val2, err;
+
+   val = do_syscall_WRK(a1, a2, a3, a4, a5, a6, a7, a8, sysno, &err, &val2);
+   return VG_(mk_SysRes_amd64_netbsd)(err ? True : False, val, err ? 0 : val2);
 
 #else
 #  error Unknown platform

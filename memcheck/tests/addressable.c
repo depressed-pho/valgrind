@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <sys/resource.h>
 #include <unistd.h>
+#include <sys/signal.h>
 #include <sys/wait.h>
 #include <assert.h>
 #include <errno.h>

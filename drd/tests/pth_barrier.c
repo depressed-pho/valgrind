@@ -17,6 +17,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(__NetBSD__) && !defined(PTHREAD_STACK_MIN)
+#  define PTHREAD_STACK_MIN 16384
+#endif
+
 
 /*********************/
 /* Type definitions. */

@@ -9,6 +9,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#if defined(__NetBSD__) && !defined(PTHREAD_STACK_MIN)
+#  define PTHREAD_STACK_MIN 16384
+#endif
+
 #define MALLOC_SIZE 22816
 #define THREAD_COUNT 10
 #define MALLOC_COUNT 1000

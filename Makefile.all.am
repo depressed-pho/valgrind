@@ -255,6 +255,12 @@ AM_CFLAGS_AMD64_SOLARIS     = @FLAG_M64@ \
 AM_CFLAGS_PSO_AMD64_SOLARIS  = @FLAG_M64@ $(AM_CFLAGS_BASE) $(AM_CFLAGS_PSO_BASE)
 AM_CCASFLAGS_AMD64_SOLARIS  = @FLAG_M64@ -g -D_ASM
 
+AM_FLAG_M3264_AMD64_NETBSD = @FLAG_M64@
+AM_CFLAGS_AMD64_NETBSD     = @FLAG_M64@ \
+				$(AM_CFLAGS_BASE) -fomit-frame-pointer
+AM_CFLAGS_PSO_AMD64_NETBSD = @FLAG_M64@ $(AM_CFLAGS_BASE) $(AM_CFLAGS_PSO_BASE)
+AM_CCASFLAGS_AMD64_NETBSD  = @FLAG_M64@ -g
+
 # Flags for the primary target.  These must be used to build the
 # regtests and performance tests.  In fact, these must be used to
 # build anything which is built only once on a dual-arch build.
@@ -279,6 +285,7 @@ PRELOAD_LDFLAGS_COMMON_SOLARIS = -nodefaultlibs -shared -Wl,-z,interpose,-z,init
 if SOLARIS_XPG_SYMBOLS_PRESENT
 PRELOAD_LDFLAGS_COMMON_SOLARIS += -Wl,-M,$(top_srcdir)/solaris/vgpreload-solaris.mapfile
 endif
+PRELOAD_LDFLAGS_COMMON_NETBSD = -nodefaultlibs -shared -Wl,-z,interpose,-z,initfirst
 
 if VGCONF_PLATVARIANT_IS_ANDROID
 # The Android toolchain includes all kinds of stdlib helpers present in
@@ -302,4 +309,4 @@ PRELOAD_LDFLAGS_MIPS64_LINUX   = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_TILEGX_LINUX   = $(PRELOAD_LDFLAGS_COMMON_LINUX) @FLAG_M64@
 PRELOAD_LDFLAGS_X86_SOLARIS    = $(PRELOAD_LDFLAGS_COMMON_SOLARIS) @FLAG_M32@
 PRELOAD_LDFLAGS_AMD64_SOLARIS  = $(PRELOAD_LDFLAGS_COMMON_SOLARIS) @FLAG_M64@
-
+PRELOAD_LDFLAGS_AMD64_NETBSD   = $(PRELOAD_LDFLAGS_COMMON_NETBSD) @FLAG_M64@

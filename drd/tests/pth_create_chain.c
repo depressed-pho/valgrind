@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include <pthread.h>
 
+#if defined(__NetBSD__) && !defined(PTHREAD_STACK_MIN)
+#  define PTHREAD_STACK_MIN 16384
+#endif
 
 static pthread_t s_thread[1000];
 static int       s_arg[1000];

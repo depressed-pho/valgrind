@@ -1,0 +1,32 @@
+#! @PERL@
+
+# Generic information about a purpose of this script can be found in
+# link_tool_exe_linux.in.
+
+use warnings;
+use strict;
+
+# expect at least: alt-load-address gcc -o foo bar.o
+die "Not enough arguments"
+    if (($#ARGV + 1) < 5);
+
+my $ala = $ARGV[0];
+shift; # Remove $ala from @ARGV
+
+# check for plausible-ish alt load address
+die "Bogus alt-load address"
+    if (length($ala) < 3 || index($ala, "0x") != 0);
+
+my $cmd = join(" ", @ARGV, "-static -Wl,@FLAG_T_TEXT@=$ala");
+
+#print "link_tool_exe_linux: $cmd\n";
+
+
+# Execute the command:
+my $r = system($cmd);
+
+if ($r == 0) {
+    exit 0;
+} else {
+    exit 1;
+}

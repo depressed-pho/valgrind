@@ -72,6 +72,8 @@ typedef Int ArenaId;
 // for any AltiVec- or SSE-related type.  This matches the Darwin libc.
 // Also, use 16 bytes for any PPC variant, since 16 is required to make
 // Altiveccery work right.
+// Nb: In NetBSD it's always 16 bytes regardless of architecture
+// according to its libc.
 #elif defined(VGP_amd64_linux)    || \
       defined(VGP_ppc32_linux)    || \
       defined(VGP_ppc64be_linux)  || \
@@ -82,7 +84,8 @@ typedef Int ArenaId;
       defined(VGP_amd64_darwin)   || \
       defined(VGP_arm64_linux)    || \
       defined(VGP_tilegx_linux)   || \
-      defined(VGP_amd64_solaris)
+      defined(VGP_amd64_solaris)  || \
+      defined(VGO_netbsd)
 #  define VG_MIN_MALLOC_SZB       16
 #else
 #  error Unknown platform

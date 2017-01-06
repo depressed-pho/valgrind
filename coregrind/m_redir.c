@@ -1215,6 +1215,8 @@ Bool VG_(is_soname_ld_so) (const HChar *soname)
    if (VG_STREQ(soname, VG_U_DYLD)) return True;
 #  elif defined(VGO_solaris)
    if (VG_STREQ(soname, VG_U_LD_SO_1)) return True;
+#  elif defined(VGO_netbsd)
+   if (VG_STREQ(soname, VG_U_LD_ELF_SO))             return True;
 #  else
 #    error "Unsupported OS"
 #  endif
@@ -1636,6 +1638,9 @@ void VG_(redir_initialise) ( void )
       add_hardwired_spec("/lib/amd64/ld.so.1", "strlen",
                          (Addr)&VG_(amd64_solaris_REDIR_FOR_strlen), NULL);
    }
+
+#elif defined(VGP_amd64_netbsd)
+   /* Nothing special needs to be done. */
 
 #  else
 #    error Unknown platform

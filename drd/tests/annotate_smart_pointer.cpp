@@ -38,6 +38,9 @@
 #endif
 #include "unified_annotations.h"
 
+#if defined(__NetBSD__) && !defined(PTHREAD_STACK_MIN)
+#  define PTHREAD_STACK_MIN 16384
+#endif
 
 static bool s_enable_annotations;
 

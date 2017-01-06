@@ -254,14 +254,11 @@ int ensure_write_remote_desc(void)
    return (write_remote_desc != INVALID_DESCRIPTOR);
 }
 
-#if defined(VGO_darwin)
-#define VKI_S_IFIFO 0010000
-#endif
 static
-void safe_mknod (char *nod)
+void safe_mkfifo (char *nod)
 {
    SysRes m;
-   m = VG_(mknod) (nod, VKI_S_IFIFO|0600, 0);
+   m = VG_(mkfifo)(nod, 0600);
    if (sr_isError (m)) {
       if (sr_Err (m) == VKI_EEXIST) {
          if (VG_(clo_verbosity) > 1) {
@@ -423,8 +420,8 @@ void remote_open (const HChar *name)
       shared = (VgdbShared*) addr_shared;
       VG_(close) (shared_mem_fd);
 
-      safe_mknod(to_gdb);
-      safe_mknod(from_gdb);
+      safe_mkfifo(to_gdb);
+      safe_mkfifo(from_gdb);
       /* from_gdb is the last resource created: vgdb searches such FIFOs
          to detect the presence of a valgrind process.
          So, we better create this resource when all the rest needed by

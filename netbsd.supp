@@ -1,0 +1,22 @@
+# NetBSD ld.elf_so uses its own implementation of mutex based on
+# memory barriers and atomic ops, which results in false negatives
+# detected by Helgrind.
+{
+   NetBSD-rtld-mutex
+   Helgrind:Race
+   fun:_rtld_exclusive_exit
+}
+
+# Ditto for mutex primitives in libpthread
+{
+   NetBSD-libpthread-mutex-lock
+   Helgrind:Race
+   fun:__libc_mutex_*lock
+}
+
+# Ditto for libpthread's internal locks
+{
+   NetBSD-libpthread-alltree-lock
+   Helgrind:Race
+   fun:pthread__find
+}

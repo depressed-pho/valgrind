@@ -53,6 +53,8 @@
                                  // VG_(mk_SysRes_Error)
                                  // VG_(mk_SysRes_Success)
 
+#include "pub_core_syswrap.h"    // VG_(find_fd_recorded_by_fd)
+
 #include "pub_core_options.h"    // VG_(clo_sanity_level)
 
 #include "pub_core_aspacemgr.h"  // self

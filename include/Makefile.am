@@ -68,6 +68,7 @@ nobase_pkginclude_HEADERS = \
 	vki/vki-s390x-linux.h		\
 	vki/vki-mips32-linux.h		\
 	vki/vki-mips64-linux.h		\
+	vki/vki-netbsd.h		\
 	vki/vki-scnums-amd64-linux.h	\
 	vki/vki-scnums-arm64-linux.h	\
 	vki/vki-scnums-ppc32-linux.h	\
@@ -79,6 +80,7 @@ nobase_pkginclude_HEADERS = \
 	vki/vki-scnums-mips64-linux.h	\
 	vki/vki-scnums-darwin.h         \
 	vki/vki-scnums-solaris.h	\
+	vki/vki-scnums-netbsd.h		\
 	vki/vki-xen.h                   \
 	vki/vki-xen-domctl.h		\
 	vki/vki-xen-evtchn.h		\

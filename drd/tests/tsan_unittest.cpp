@@ -4401,7 +4401,7 @@ Mutex   MU;
 
 void Publisher() {
   MU.Lock();
-  GLOB = (int*)memalign(64, sizeof(int));
+  posix_memalign(reinterpret_cast<void**>(&GLOB), 64, sizeof(int));
   *GLOB = 777;
   if (!Tsan_PureHappensBefore() && !Tsan_FastMode())
     ANNOTATE_EXPECT_RACE_FOR_TSAN(GLOB, "test90. FP. This is a false positve");
@@ -4448,7 +4448,7 @@ Mutex   MU, MU1, MU2;
 
 void Publisher() {
   MU1.Lock();
-  GLOB = (int*)memalign(64, sizeof(int));
+  posix_memalign(reinterpret_cast<void**>(&GLOB), 64, sizeof(int));
   *GLOB = 777;
   if (!Tsan_PureHappensBefore() && !Tsan_FastMode())
     ANNOTATE_EXPECT_RACE_FOR_TSAN(GLOB, "test91. FP. This is a false positve");
@@ -5035,7 +5035,7 @@ void Parent() {
   t.Join();
 }
 void Run() {
-  GLOB = (int*)memalign(64, sizeof(int));
+  posix_memalign(reinterpret_cast<void**>(&GLOB), 64, sizeof(int));
   *GLOB = 0;
   ANNOTATE_EXPECT_RACE(GLOB, "test104. TP.");
   ANNOTATE_TRACE_MEMORY(GLOB);
@@ -5224,7 +5224,9 @@ int       *CALLOC;
 int       *REALLOC;
 int       *VALLOC;
 int       *PVALLOC;
+#if !defined(__NetBSD__)
 int       *MEMALIGN;
+#endif
 union pi_pv_union { int* pi; void* pv; } POSIX_MEMALIGN;
 int       *MMAP;
 
@@ -5242,7 +5244,9 @@ void Worker() {
   (*REALLOC)++;
   (*VALLOC)++;
   (*PVALLOC)++;
+#if !defined(__NetBSD__)
   (*MEMALIGN)++;
+#endif
   (*(POSIX_MEMALIGN.pi))++;
   (*MMAP)++;
 
@@ -5258,7 +5262,9 @@ void Run() {
   REALLOC = (int*)realloc(NULL, sizeof(int));
   VALLOC = (int*)valloc(sizeof(int));
   PVALLOC = (int*)valloc(sizeof(int));  // TODO: pvalloc breaks helgrind.
+#if !defined(__NetBSD__)
   MEMALIGN = (int*)memalign(64, sizeof(int));
+#endif
   CHECK(0 == posix_memalign(&POSIX_MEMALIGN.pv, 64, sizeof(int)));
   MMAP = (int*)mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE,
                     MAP_PRIVATE | MAP_ANON, -1, 0);
@@ -5283,8 +5289,10 @@ void Run() {
   ANNOTATE_EXPECT_RACE(VALLOC, "real race on a valloc-ed object");
   FAST_MODE_INIT(PVALLOC);
   ANNOTATE_EXPECT_RACE(PVALLOC, "real race on a pvalloc-ed object");
+#if !defined(__NetBSD__)
   FAST_MODE_INIT(MEMALIGN);
   ANNOTATE_EXPECT_RACE(MEMALIGN, "real race on a memalign-ed object");
+#endif
   FAST_MODE_INIT(POSIX_MEMALIGN.pi);
   ANNOTATE_EXPECT_RACE(POSIX_MEMALIGN.pi, "real race on a posix_memalign-ed object");
   FAST_MODE_INIT(MMAP);
@@ -5308,7 +5316,9 @@ void Run() {
   free(REALLOC);
   free(VALLOC);
   free(PVALLOC);
+#if !defined(__NetBSD__)
   free(MEMALIGN);
+#endif
   free(POSIX_MEMALIGN.pv);
   munmap(MMAP, sizeof(int));
   delete NEW;

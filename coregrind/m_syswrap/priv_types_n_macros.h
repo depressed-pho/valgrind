@@ -121,7 +121,7 @@ typedef
       Int s_arg6;
       Int s_arg7;
       Int s_arg8;
-#     elif defined(VGP_amd64_darwin) || defined(VGP_amd64_solaris)
+#     elif defined(VGP_amd64_darwin) || defined(VGP_amd64_solaris) || defined(VGP_amd64_netbsd)
       Int o_arg1;
       Int o_arg2;
       Int o_arg3;
@@ -207,6 +207,10 @@ extern const UInt ML_(syscall_table_size);
 extern
 SyscallTableEntry* ML_(get_solaris_syscall_entry)( UInt sysno );
 
+#elif defined(VGO_netbsd)
+extern
+SyscallTableEntry* ML_(get_netbsd_syscall_entry)( UInt sysno );
+
 #else
 #  error Unknown OS
 #endif   
@@ -285,7 +289,7 @@ SyscallTableEntry* ML_(get_solaris_syscall_entry)( UInt sysno );
     vgSysWrap_##auxstr##_##name##_after
 
 /* Add a generic wrapper to a syscall table. */
-#if defined(VGO_linux) || defined(VGO_solaris)
+#if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
 #  define GENX_(sysno, name)  WRAPPER_ENTRY_X_(generic, sysno, name)
 #  define GENXY(sysno, name)  WRAPPER_ENTRY_XY(generic, sysno, name)
 #elif defined(VGO_darwin)
@@ -345,7 +349,7 @@ static inline UWord getRES ( SyscallStatus* st ) {
    return sr_Res(st->sres);
 }
 
-#if defined(VGO_darwin) || defined(VGO_solaris)
+#if defined(VGO_darwin) || defined(VGO_solaris) || defined(VGO_netbsd)
 static inline UWord getRESHI ( SyscallStatus* st ) {
    vg_assert(st->what == SsComplete);
    vg_assert(!sr_isError(st->sres));
@@ -428,7 +432,7 @@ static inline UWord getERR ( SyscallStatus* st ) {
 #  define PRA7(s,t,a) PSRAn(7,s,t,a)
 #  define PRA8(s,t,a) PSRAn(8,s,t,a)
 
-#elif defined(VGP_amd64_darwin) || defined(VGP_amd64_solaris)
+#elif defined(VGP_amd64_darwin) || defined(VGP_amd64_solaris) || defined(VGP_amd64_netbsd)
    /* Up to 8 parameters, 6 in registers, 2 on the stack. */
 #  define PRA1(s,t,a) PRRAn(1,s,t,a)
 #  define PRA2(s,t,a) PRRAn(2,s,t,a)

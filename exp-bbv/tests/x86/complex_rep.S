@@ -57,6 +57,9 @@ exit:
 #elif defined(VGO_solaris)
 	pushl   $0			# we return 0
 	int     $0x91          		# and exit
+#elif defined(VGO_netbsd)
+	pushl	$0			# we return 0
+	int	$0x80			# and exit
 #else
 #  error "Unknown OS"
 #endif

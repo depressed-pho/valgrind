@@ -38,6 +38,10 @@
 #  else
 #  define __BYTE_ORDER    __BIG_ENDIAN
 #  endif
+#elif defined(__NetBSD__)
+#  include <sys/endian.h>
+#  define __BYTE_ORDER    BYTE_ORDER
+#  define __LITTLE_ENDIAN LITTLE_ENDIAN
 #else
 #include <endian.h>
 #endif

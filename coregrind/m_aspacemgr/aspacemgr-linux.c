@@ -32,7 +32,7 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris) || defined(VGO_netbsd)
 
 /* *************************************************************
    DO NOT INCLUDE ANY OTHER FILES HERE.
@@ -306,7 +306,7 @@ static Int      nsegments_used = 0;
 
 
 Addr VG_(clo_aspacem_minAddr)
-#if defined(VGO_linux)
+#if defined(VGO_linux) || defined(VGO_netbsd)
    = (Addr) 0x04000000; // 64M
 #elif defined(VGO_darwin)
 # if VG_WORDSIZE == 4
@@ -3218,7 +3218,7 @@ Bool VG_(am_relocate_nooverlap_client)( /*OUT*/Bool* need_discard,
 #endif // HAVE_MREMAP
 
 
-#if defined(VGO_linux)
+#if defined(VGO_linux) || defined(VGO_netbsd)
 
 /*-----------------------------------------------------------------*/
 /*---                                                           ---*/
@@ -4106,7 +4106,8 @@ Bool VG_(am_search_for_new_segment)(Addr *addr, SizeT *size, UInt *prot)
 
 /*------END-procmaps-parser-for-Solaris--------------------------*/
 
-#endif // defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
+#endif /* defined(VGO_linux) || defined(VGO_darwin) ||
+          defined(VGO_solaris) || defined(VGO_netbsd) */
 
 /*--------------------------------------------------------------------*/
 /*--- end                                                          ---*/

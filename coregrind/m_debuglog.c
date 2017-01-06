@@ -650,6 +650,46 @@ static UInt local_sys_getpid ( void )
    return res;
 }
 
+#elif defined(VGP_amd64_netbsd)
+__attribute__((__noinline__))
+static UInt local_sys_write_stderr ( const HChar* buf, Int n )
+{
+   int rv;
+
+   __asm__ __volatile__ (
+      "movl    $"VG_STRINGIFY(__NR_write)", %%eax\n" /* %eax = __NR_write */
+      "movq    $2, %%rdi\n"     /* %rdi = stderr */
+      "movq    %[buf], %%rsi\n" /* %rsi = buf */
+      "movl    %[n], %%edx\n"   /* %edx = n */
+      "syscall\n"               /* write(stderr, buf, n) */
+      "jnc     1f\n"            /* jump if no error */
+      "movq    $-1, %%rax\n"    /* return -1 if error */
+      "1: "
+      "movl    %%eax, %[rv]\n"  /* rv = %eax */
+      : /* output  */ [rv] "=mr" (rv)
+      : /* input   */ [buf] "g" (buf), [n] "g" (n)
+      : /* clobber */ "eax", "rdi", "rsi", "edx", "rcx", "rax", "cc"
+      );
+
+   return rv;
+}
+
+static UInt local_sys_getpid ( void )
+{
+   int rv;
+
+   __asm__ __volatile__ (
+      "movl $"VG_STRINGIFY(__NR_getpid)", %%eax\n" /* %eax = __NR_getpid */
+      "int  $0x80\n"        /* getpid() */
+      "movl %%eax, %[rv]\n" /* rv = %eax */
+      : /* output  */ [rv] "=mr" (rv)
+      : /* input   */
+      : /* clobber */ "rax", "rdx", "cc"
+      );
+
+   return rv;
+}
+
 #else
 # error Unknown platform
 #endif

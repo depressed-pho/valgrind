@@ -29,7 +29,7 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#if defined(VGO_linux) || defined(VGO_solaris)
+#if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
 
 #include "pub_core_basics.h"
 #include "pub_core_vki.h"
@@ -1697,13 +1697,13 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
       const DebugInfoMapping* map = VG_(indexXA)(di->fsm.maps, i);
       if (map->rx)
          TRACE_SYMTAB("rx_map:  avma %#lx   size %lu  foff %ld\n",
-                      map->avma, map->size, map->foff);
+                      map->avma, map->size, (long)map->foff);
    }
    for (i = 0; i < VG_(sizeXA)(di->fsm.maps); i++) {
       const DebugInfoMapping* map = VG_(indexXA)(di->fsm.maps, i);
       if (map->rw)
          TRACE_SYMTAB("rw_map:  avma %#lx   size %lu  foff %ld\n",
-                      map->avma, map->size, map->foff);
+                      map->avma, map->size, (long)map->foff);
    }
 
    if (phdr_mnent == 0
@@ -1914,7 +1914,7 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
       const DebugInfoMapping* map = VG_(indexXA)(di->fsm.maps, i);
       if (map->rx)
          TRACE_SYMTAB("rx: at %#lx are mapped foffsets %ld .. %lu\n",
-                      map->avma, map->foff, map->foff + map->size - 1 );
+                      map->avma, (long)map->foff, (long)(map->foff + map->size - 1) );
    }
    TRACE_SYMTAB("rx: contains these svma regions:\n");
    for (i = 0; i < VG_(sizeXA)(svma_ranges); i++) {
@@ -1927,7 +1927,7 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
       const DebugInfoMapping* map = VG_(indexXA)(di->fsm.maps, i);
       if (map->rw)
          TRACE_SYMTAB("rw: at %#lx are mapped foffsets %ld .. %lu\n",
-                      map->avma, map->foff, map->foff + map->size - 1 );
+                      map->avma, (long)map->foff, (long)(map->foff + map->size - 1) );
    }
    TRACE_SYMTAB("rw: contains these svma regions:\n");
    for (i = 0; i < VG_(sizeXA)(svma_ranges); i++) {
@@ -1972,7 +1972,7 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
       TRACE_SYMTAB(" [sec %2ld]  %s %s  al%4u  foff %6ld .. %6lu  "
                    "  svma %p  name \"%s\"\n", 
                    i, inrx ? "rx" : "  ", inrw ? "rw" : "  ", alyn,
-                   foff, (size == 0) ? foff : foff+size-1, (void *) svma, name);
+                   (long)foff, (long)((size == 0) ? foff : foff+size-1), (void *) svma, name);
 
       /* Check for sane-sized segments.  SHT_NOBITS sections have zero
          size in the file and their offsets are just conceptual. */
@@ -2279,7 +2279,8 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
          || defined(VGP_arm_linux) || defined (VGP_s390x_linux) \
          || defined(VGP_mips32_linux) || defined(VGP_mips64_linux) \
          || defined(VGP_arm64_linux) || defined(VGP_tilegx_linux) \
-         || defined(VGP_x86_solaris) || defined(VGP_amd64_solaris)
+         || defined(VGP_x86_solaris) || defined(VGP_amd64_solaris) \
+         || defined(VGP_amd64_netbsd)
       /* Accept .plt where mapped as rx (code) */
       if (0 == VG_(strcmp)(name, ".plt")) {
          if (inrx && !di->plt_present) {
@@ -3213,7 +3214,7 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
    /* NOTREACHED */
 }
 
-#endif // defined(VGO_linux) || defined(VGO_solaris)
+#endif // defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
 
 /*--------------------------------------------------------------------*/
 /*--- end                                                          ---*/

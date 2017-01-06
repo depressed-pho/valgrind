@@ -477,6 +477,12 @@ static int pthread_create_WRK(pthread_t *thread, const pthread_attr_t *attr,
                  void *(*start) (void *), void *arg) {
       return pthread_create_WRK(thread, attr, start, arg);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZucreate, // pthread_create
+                 pthread_t *thread, const pthread_attr_t *attr,
+                 void *(*start) (void *), void *arg) {
+      return pthread_create_WRK(thread, attr, start, arg);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -539,7 +545,7 @@ static int thr_create_WRK(void *stk, size_t stksize, void *(*start)(void *),
 // glibc:  pthread_join
 // darwin: pthread_join
 // darwin: pthread_join$NOCANCEL$UNIX2003
-// darwin  pthread_join$UNIX2003
+// darwin: pthread_join$UNIX2003
 __attribute__((noinline))
 static int pthread_join_WRK(pthread_t thread, void** value_pointer)
 {
@@ -577,6 +583,11 @@ static int pthread_join_WRK(pthread_t thread, void** value_pointer)
       return pthread_join_WRK(thread, value_pointer);
    }
 #elif defined(VGO_solaris)
+   PTH_FUNC(int, pthreadZujoin, // pthread_join
+            pthread_t thread, void** value_pointer) {
+      return pthread_join_WRK(thread, value_pointer);
+   }
+#elif defined(VGO_netbsd)
    PTH_FUNC(int, pthreadZujoin, // pthread_join
             pthread_t thread, void** value_pointer) {
       return pthread_join_WRK(thread, value_pointer);
@@ -867,7 +878,7 @@ static int mutex_destroy_WRK(pthread_mutex_t *mutex)
    return ret;
 }
 
-#if defined(VGO_linux) || defined(VGO_darwin)
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    PTH_FUNC(int, pthreadZumutexZudestroy, // pthread_mutex_destroy
             pthread_mutex_t *mutex) {
       return mutex_destroy_WRK(mutex);
@@ -919,7 +930,7 @@ static int mutex_lock_WRK(pthread_mutex_t *mutex)
    return ret;
 }
 
-#if defined(VGO_linux) || defined(VGO_darwin)
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    PTH_FUNC(int, pthreadZumutexZulock, // pthread_mutex_lock
             pthread_mutex_t *mutex) {
       return mutex_lock_WRK(mutex);
@@ -1005,7 +1016,7 @@ static int mutex_trylock_WRK(pthread_mutex_t *mutex)
    return ret;
 }
 
-#if defined(VGO_linux) || defined(VGO_darwin)
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    PTH_FUNC(int, pthreadZumutexZutrylock, // pthread_mutex_trylock
             pthread_mutex_t *mutex) {
       return mutex_trylock_WRK(mutex);
@@ -1109,7 +1120,7 @@ static int mutex_unlock_WRK(pthread_mutex_t *mutex)
    return ret;
 }
 
-#if defined(VGO_linux) || defined(VGO_darwin)
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    PTH_FUNC(int, pthreadZumutexZuunlock, // pthread_mutex_unlock
             pthread_mutex_t *mutex) {
       return mutex_unlock_WRK(mutex);
@@ -1239,6 +1250,11 @@ static int pthread_cond_wait_WRK(pthread_cond_t* cond,
                  pthread_cond_t *cond, pthread_mutex_t *mutex) {
       return pthread_cond_wait_WRK(cond, mutex);
    }
+#elif defined(VGO_netbsd)
+PTH_FUNC(int, pthreadZucondZuwait, // pthread_cond_wait
+                 pthread_cond_t* cond, pthread_mutex_t* mutex) {
+      return pthread_cond_wait_WRK(cond, mutex);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -1356,6 +1372,12 @@ static int pthread_cond_timedwait_WRK(pthread_cond_t* cond,
                  struct timespec *reltime) {
       return pthread_cond_timedwait_WRK(cond, mutex, reltime, ETIME);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZucondZutimedwait, // pthread_cond_timedwait
+                 pthread_cond_t* cond, pthread_mutex_t* mutex,
+                 struct timespec* abstime) {
+      return pthread_cond_timedwait_WRK(cond, mutex, abstime, ETIMEDOUT);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -1412,6 +1434,11 @@ static int pthread_cond_signal_WRK(pthread_cond_t* cond)
 #elif defined(VGO_solaris)
    PTH_FUNC(int, condZusignal, // cond_signal
                  pthread_cond_t *cond) {
+      return pthread_cond_signal_WRK(cond);
+   }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZucondZusignal, // pthread_cond_signal
+                 pthread_cond_t* cond) {
       return pthread_cond_signal_WRK(cond);
    }
 #else
@@ -1475,6 +1502,11 @@ static int pthread_cond_broadcast_WRK(pthread_cond_t* cond)
                  pthread_cond_t *cond) {
       return pthread_cond_broadcast_WRK(cond);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZucondZubroadcast, // pthread_cond_broadcast
+                 pthread_cond_t* cond) {
+      return pthread_cond_broadcast_WRK(cond);
+   }
 #else
 #   error "Unsupported OS"
 #endif
@@ -1524,6 +1556,11 @@ static int pthread_cond_init_WRK(pthread_cond_t* cond, pthread_condattr_t *cond_
 #elif defined(VGO_darwin)
    PTH_FUNC(int, pthreadZucondZuinit, // pthread_cond_init
 	    pthread_cond_t* cond, pthread_condattr_t * cond_attr) {
+     return pthread_cond_init_WRK(cond, cond_attr);
+   }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZucondZuinit, // pthread_cond_init
+            pthread_cond_t* cond, pthread_condattr_t * cond_attr) {
      return pthread_cond_init_WRK(cond, cond_attr);
    }
 #else
@@ -1619,6 +1656,11 @@ static int pthread_cond_destroy_WRK(pthread_cond_t* cond)
 #elif defined(VGO_solaris)
    PTH_FUNC(int, condZudestroy, // cond_destroy
                  pthread_cond_t *cond) {
+      return pthread_cond_destroy_WRK(cond);
+   }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZucondZudestroy, // pthread_cond_destroy
+                 pthread_cond_t* cond) {
       return pthread_cond_destroy_WRK(cond);
    }
 #else
@@ -1827,6 +1869,15 @@ static int pthread_spin_init_or_unlock_WRK(pthread_spinlock_t* lock,
             pthread_spinlock_t *lock) {
       return pthread_spin_init_or_unlock_WRK(lock, 0/*pshared*/);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZuspinZuinit, // pthread_spin_init
+            pthread_spinlock_t *lock, int pshared) {
+      return pthread_spin_init_or_unlock_WRK(lock, pshared);
+   }
+   PTH_FUNC(int, pthreadZuspinZuunlock, // pthread_spin_unlock
+            pthread_spinlock_t *lock) {
+      return pthread_spin_init_or_unlock_WRK(lock, 0/*pshared*/);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -1868,6 +1919,11 @@ static int pthread_spin_destroy_WRK(pthread_spinlock_t *lock)
    }
 #elif defined(VGO_darwin)
 #elif defined(VGO_solaris)
+   PTH_FUNC(int, pthreadZuspinZudestroy, // pthread_spin_destroy
+            pthread_spinlock_t *lock) {
+      return pthread_spin_destroy_WRK(lock);
+   }
+#elif defined(VGO_netbsd)
    PTH_FUNC(int, pthreadZuspinZudestroy, // pthread_spin_destroy
             pthread_spinlock_t *lock) {
       return pthread_spin_destroy_WRK(lock);
@@ -1925,6 +1981,11 @@ static int pthread_spin_lock_WRK(pthread_spinlock_t *lock)
                  pthread_spinlock_t *lock) {
       return pthread_spin_lock_WRK(lock);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZuspinZulock, // pthread_spin_lock
+                 pthread_spinlock_t *lock) {
+      return pthread_spin_lock_WRK(lock);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -1975,6 +2036,11 @@ static int pthread_spin_trylock_WRK(pthread_spinlock_t *lock)
    }
 #elif defined(VGO_darwin)
 #elif defined(VGO_solaris)
+   PTH_FUNC(int, pthreadZuspinZutrylock, // pthread_spin_trylock
+                 pthread_spinlock_t *lock) {
+      return pthread_spin_trylock_WRK(lock);
+   }
+#elif defined(VGO_netbsd)
    PTH_FUNC(int, pthreadZuspinZutrylock, // pthread_spin_trylock
                  pthread_spinlock_t *lock) {
       return pthread_spin_trylock_WRK(lock);
@@ -2051,6 +2117,12 @@ static int pthread_rwlock_init_WRK(pthread_rwlock_t *rwl,
 static int pthread_rwlock_init_WRK(pthread_rwlock_t *rwl,
                                    pthread_rwlockattr_t* attr)
                                    __attribute__((unused));
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZurwlockZuinit, // pthread_rwlock_init
+                 pthread_rwlock_t *rwl,
+                 pthread_rwlockattr_t* attr) {
+      return pthread_rwlock_init_WRK(rwl, attr);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -2130,6 +2202,11 @@ static int pthread_rwlock_destroy_WRK(pthread_rwlock_t* rwl)
                  pthread_rwlock_t *rwl) {
       return pthread_rwlock_destroy_WRK(rwl);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZurwlockZudestroy, // pthread_rwlock_destroy
+                 pthread_rwlock_t *rwl) {
+      return pthread_rwlock_destroy_WRK(rwl);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -2182,6 +2259,11 @@ static int pthread_rwlock_wrlock_WRK(pthread_rwlock_t* rwlock)
 #elif defined(VGO_solaris)
    PTH_FUNC(int, rwZuwrlock, // rw_wrlock
                  pthread_rwlock_t *rwlock) {
+      return pthread_rwlock_wrlock_WRK(rwlock);
+   }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZurwlockZuwrlock, // pthread_rwlock_wrlock
+                 pthread_rwlock_t* rwlock) {
       return pthread_rwlock_wrlock_WRK(rwlock);
    }
 #else
@@ -2262,6 +2344,11 @@ static int pthread_rwlock_rdlock_WRK(pthread_rwlock_t* rwlock)
 #elif defined(VGO_solaris)
    PTH_FUNC(int, rwZurdlock, // rw_rdlock
                  pthread_rwlock_t *rwlock) {
+      return pthread_rwlock_rdlock_WRK(rwlock);
+   }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZurwlockZurdlock, // pthread_rwlock_rdlock
+                 pthread_rwlock_t* rwlock) {
       return pthread_rwlock_rdlock_WRK(rwlock);
    }
 #else
@@ -2350,6 +2437,11 @@ static int pthread_rwlock_trywrlock_WRK(pthread_rwlock_t* rwlock)
                  pthread_rwlock_t *rwlock) {
       return pthread_rwlock_trywrlock_WRK(rwlock);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZurwlockZutrywrlock, // pthread_rwlock_trywrlock
+                 pthread_rwlock_t* rwlock) {
+      return pthread_rwlock_trywrlock_WRK(rwlock);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -2411,6 +2503,11 @@ static int pthread_rwlock_tryrdlock_WRK(pthread_rwlock_t* rwlock)
                  pthread_rwlock_t *rwlock) {
       return pthread_rwlock_tryrdlock_WRK(rwlock);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZurwlockZutryrdlock, // pthread_rwlock_tryrdlock
+                 pthread_rwlock_t* rwlock) {
+      return pthread_rwlock_tryrdlock_WRK(rwlock);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -2460,6 +2557,12 @@ static int pthread_rwlock_timedrdlock_WRK(pthread_rwlock_t *rwlock,
       return pthread_rwlock_timedrdlock_WRK(rwlock, timeout);
    }
    PTH_FUNC(int, pthreadZurwlockZureltimedrdlockZunp, // pthread_rwlock_timedrdlock_np
+                 pthread_rwlock_t *rwlock,
+                 const struct timespec *timeout) {
+      return pthread_rwlock_timedrdlock_WRK(rwlock, timeout);
+   }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZurwlockZutimedrdlock, // pthread_rwlock_timedrdlock
                  pthread_rwlock_t *rwlock,
                  const struct timespec *timeout) {
       return pthread_rwlock_timedrdlock_WRK(rwlock, timeout);
@@ -2517,6 +2620,12 @@ static int pthread_rwlock_timedwrlock_WRK(pthread_rwlock_t *rwlock,
                  const struct timespec *timeout) {
       return pthread_rwlock_timedwrlock_WRK(rwlock, timeout);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZurwlockZutimedwrlock, // pthread_rwlock_timedwrlock
+                 pthread_rwlock_t *rwlock,
+                 const struct timespec *timeout) {
+      return pthread_rwlock_timedwrlock_WRK(rwlock, timeout);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -2566,6 +2675,11 @@ static int pthread_rwlock_unlock_WRK(pthread_rwlock_t* rwlock)
 #elif defined(VGO_solaris)
    PTH_FUNC(int, rwZuunlock, // rw_unlock
                  pthread_rwlock_t *rwlock) {
+      return pthread_rwlock_unlock_WRK(rwlock);
+   }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, pthreadZurwlockZuunlock, // pthread_rwlock_unlock
+                 pthread_rwlock_t* rwlock) {
       return pthread_rwlock_unlock_WRK(rwlock);
    }
 #else
@@ -2642,6 +2756,11 @@ static int sem_init_WRK(sem_t* sem, int pshared, unsigned long value)
       return sem_init_WRK(sem, pshared, value);
    }
 #elif defined(VGO_darwin)
+   PTH_FUNC(int, semZuinit, // sem_init
+                 sem_t* sem, int pshared, unsigned long value) {
+      return sem_init_WRK(sem, pshared, value);
+   }
+#elif defined(VGO_netbsd)
    PTH_FUNC(int, semZuinit, // sem_init
                  sem_t* sem, int pshared, unsigned long value) {
       return sem_init_WRK(sem, pshared, value);
@@ -2733,6 +2852,11 @@ static int sem_destroy_WRK(sem_t* sem)
                  sem_t *sem) {
       return sem_destroy_WRK(sem);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, semZudestroy,  // sem_destroy
+                 sem_t* sem) {
+      return sem_destroy_WRK(sem);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -2796,6 +2920,10 @@ static int sem_wait_WRK(sem_t* sem)
    PTH_FUNC(int, semaZuwait, sem_t *sem) { /* sema_wait */
       return sem_wait_WRK(sem);
    }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, semZuwait, sem_t* sem) { /* sem_wait */
+      return sem_wait_WRK(sem);
+   }
 #else
 #  error "Unsupported OS"
 #endif
@@ -2852,6 +2980,10 @@ static int sem_post_WRK(sem_t* sem)
    }
 #elif defined(VGO_solaris)
    PTH_FUNC(int, semaZupost, sem_t *sem) { /* sema_post */
+      return sem_post_WRK(sem);
+   }
+#elif defined(VGO_netbsd)
+   PTH_FUNC(int, semZupost, sem_t* sem) { /* sem_post */
       return sem_post_WRK(sem);
    }
 #else

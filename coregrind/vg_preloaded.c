@@ -47,7 +47,7 @@
 #include "pub_core_debuginfo.h"  // Needed for pub_core_redir.h
 #include "pub_core_redir.h"      // For VG_NOTIFY_ON_LOAD
 
-#if defined(VGO_linux) || defined(VGO_solaris)
+#if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
 
 /* ---------------------------------------------------------------------
    Hook for running __gnu_cxx::__freeres() and __libc_freeres() once
@@ -86,7 +86,7 @@ void VG_NOTIFY_ON_LOAD(freeres)(Vg_FreeresToRun to_run)
 
 #endif // VGO_linux || VGO_solaris
 
-#if defined(VGO_linux)
+#if defined(VGO_linux) || defined(VGO_netbsd)
 
 /* ---------------------------------------------------------------------
    Wrapper for indirect functions which need to be redirected.

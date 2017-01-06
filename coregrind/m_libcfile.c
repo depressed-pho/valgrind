@@ -78,7 +78,7 @@ Int VG_(safe_fd)(Int oldfd)
    cannot be deduced. */
 Bool VG_(resolve_filename) ( Int fd, const HChar** result )
 {
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    static HChar *buf = NULL;
    static SizeT  bufsiz = 0;
 
@@ -142,7 +142,7 @@ SysRes VG_(mknod) ( const HChar* pathname, Int mode, UWord dev )
    /* ARM64 wants to use __NR_mknodat rather than __NR_mknod. */
    SysRes res = VG_(do_syscall4)(__NR_mknodat,
                                  VKI_AT_FDCWD, (UWord)pathname, mode, dev);
-#  elif defined(VGO_linux) || defined(VGO_darwin)
+#  elif defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall3)(__NR_mknod,
                                  (UWord)pathname, mode, dev);
 #  elif defined(VGO_solaris)
@@ -154,13 +154,30 @@ SysRes VG_(mknod) ( const HChar* pathname, Int mode, UWord dev )
    return res;
 }
 
+SysRes VG_(mkfifo) ( const HChar* pathname, Int mode )
+{
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
+#  if defined(VGO_darwin)
+#    define VKI_S_IFIFO 0010000
+#  endif
+   SysRes res = VG_(mknod)(pathname, VKI_S_IFIFO|mode, 0);
+
+#elif defined(VGO_netbsd)
+   SysRes res = VG_(do_syscall2)(__NR_mkfifo, (UWord)pathname, mode);
+
+#else
+#  error Unknown OS
+#endif
+   return res;
+}
+
 SysRes VG_(open) ( const HChar* pathname, Int flags, Int mode )
 {
 #  if defined(VGP_arm64_linux) || defined(VGP_tilegx_linux)
    /* ARM64 wants to use __NR_openat rather than __NR_open. */
    SysRes res = VG_(do_syscall4)(__NR_openat,
                                  VKI_AT_FDCWD, (UWord)pathname, flags, mode);
-#  elif defined(VGO_linux)
+#  elif defined(VGO_linux) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall3)(__NR_open,
                                  (UWord)pathname, flags, mode);
 #  elif defined(VGO_darwin)
@@ -188,7 +205,7 @@ Int VG_(fd_open) (const HChar* pathname, Int flags, Int mode)
 void VG_(close) ( Int fd )
 {
    /* Hmm.  Return value is not checked.  That's uncool. */
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    (void)VG_(do_syscall1)(__NR_close, fd);
 #  elif defined(VGO_darwin)
    (void)VG_(do_syscall1)(__NR_close_nocancel, fd);
@@ -200,7 +217,7 @@ void VG_(close) ( Int fd )
 Int VG_(read) ( Int fd, void* buf, Int count)
 {
    Int    ret;
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall3)(__NR_read, fd, (UWord)buf, count);
 #  elif defined(VGO_darwin)
    SysRes res = VG_(do_syscall3)(__NR_read_nocancel, fd, (UWord)buf, count);
@@ -220,7 +237,7 @@ Int VG_(read) ( Int fd, void* buf, Int count)
 Int VG_(write) ( Int fd, const void* buf, Int count)
 {
    Int    ret;
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall3)(__NR_write, fd, (UWord)buf, count);
 #  elif defined(VGO_darwin)
    SysRes res = VG_(do_syscall3)(__NR_write_nocancel, fd, (UWord)buf, count);
@@ -276,6 +293,16 @@ Int VG_(pipe) ( Int fd[2] )
    }
    return sr_isError(res) ? -1 : 0;
 #  endif
+#  elif defined(VGO_netbsd)
+   /* __NR_pipe has a strange return convention on this platform. */
+   SysRes res = VG_(do_syscall0)(__NR_pipe);
+   if (!sr_isError(res)) {
+      fd[0] = (Int)sr_Res(res);
+      fd[1] = (Int)sr_ResHI(res);
+      return 0;
+   } else {
+      return -1;
+   }
 #  else
 #    error "Unknown OS"
 #  endif
@@ -305,6 +332,10 @@ Off64T VG_(lseek) ( Int fd, Off64T offset, Int whence )
    return sr_isError(res) ? (-1) : ((ULong)sr_ResHI(res) << 32 | sr_Res(res));
 #  elif defined(VGP_amd64_solaris)
    SysRes res = VG_(do_syscall3)(__NR_lseek, fd, offset, whence);
+   vg_assert(sizeof(Off64T) == sizeof(Word));
+   return sr_isError(res) ? (-1) : sr_Res(res);
+#  elif defined(VGP_amd64_netbsd)
+   SysRes res = VG_(do_syscall4)(__NR_lseek, fd, 0, offset, whence);
    vg_assert(sizeof(Off64T) == sizeof(Word));
    return sr_isError(res) ? (-1) : sr_Res(res);
 #  else
@@ -387,6 +418,13 @@ SysRes VG_(stat) ( const HChar* file_name, struct vg_stat* vgbuf )
          TRANSLATE_TO_vg_stat(vgbuf, &buf64);
       return res;
    }
+#  elif defined(VGO_netbsd)
+   { struct vki_stat buf;
+     res = VG_(do_syscall2)(__NR_stat, (UWord)file_name, (UWord)&buf);
+     if (!sr_isError(res))
+        TRANSLATE_TO_vg_stat(vgbuf, &buf);
+     return res;
+   }
 #  else
 #    error Unknown OS
 #  endif
@@ -432,6 +470,13 @@ Int VG_(fstat) ( Int fd, struct vg_stat* vgbuf )
          TRANSLATE_TO_vg_stat(vgbuf, &buf64);
       return sr_isError(res) ? (-1) : 0;
    }
+#  elif defined(VGO_netbsd)
+   { struct vki_stat buf;
+     res = VG_(do_syscall2)(__NR_fstat, (UWord)fd, (UWord)&buf);
+     if (!sr_isError(res))
+        TRANSLATE_TO_vg_stat(vgbuf, &buf);
+     return sr_isError(res) ? (-1) : 0;
+   }
 #  else
 #    error Unknown OS
 #  endif
@@ -469,7 +514,7 @@ Bool VG_(is_dir) ( const HChar* f )
 
 SysRes VG_(dup) ( Int oldfd )
 {
-#  if defined(VGO_linux) || defined(VGO_darwin)
+#  if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    return VG_(do_syscall1)(__NR_dup, oldfd);
 #  elif defined(VGO_solaris)
    return VG_(do_syscall3)(__NR_fcntl, oldfd, F_DUPFD, 0);
@@ -491,7 +536,7 @@ SysRes VG_(dup2) ( Int oldfd, Int newfd )
       return VG_(mk_SysRes_Success)(newfd);
    }
    return VG_(do_syscall3)(__NR_dup3, oldfd, newfd, 0);
-#  elif defined(VGO_linux) || defined(VGO_darwin)
+#  elif defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    return VG_(do_syscall2)(__NR_dup2, oldfd, newfd);
 #  elif defined(VGO_solaris)
    return VG_(do_syscall3)(__NR_fcntl, oldfd, F_DUP2FD, newfd);
@@ -503,7 +548,7 @@ SysRes VG_(dup2) ( Int oldfd, Int newfd )
 /* Returns -1 on error. */
 Int VG_(fcntl) ( Int fd, Int cmd, Addr arg )
 {
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall3)(__NR_fcntl, fd, cmd, arg);
 #  elif defined(VGO_darwin)
    SysRes res = VG_(do_syscall3)(__NR_fcntl_nocancel, fd, cmd, arg);
@@ -519,7 +564,7 @@ Int VG_(rename) ( const HChar* old_name, const HChar* new_name )
       || defined(VGP_arm64_linux) || defined(VGP_tilegx_linux)
    SysRes res = VG_(do_syscall4)(__NR_renameat, VKI_AT_FDCWD, (UWord)old_name,
                                  VKI_AT_FDCWD, (UWord)new_name);
-#  elif defined(VGO_linux) || defined(VGO_darwin)
+#  elif defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall2)(__NR_rename, (UWord)old_name, (UWord)new_name);
 #  else
 #    error "Unknown OS"
@@ -532,7 +577,7 @@ Int VG_(unlink) ( const HChar* file_name )
 #  if defined(VGP_arm64_linux) || defined(VGP_tilegx_linux)
    SysRes res = VG_(do_syscall2)(__NR_unlinkat, VKI_AT_FDCWD,
                                                 (UWord)file_name);
-#  elif defined(VGO_linux) || defined(VGO_darwin)
+#  elif defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall1)(__NR_unlink, (UWord)file_name);
 #  elif defined(VGO_solaris)
    SysRes res = VG_(do_syscall3)(__NR_unlinkat, VKI_AT_FDCWD,
@@ -554,7 +599,7 @@ static HChar *startup_wd;
    changes. */
 void VG_(record_startup_wd) ( void )
 {
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    /* Simple: just ask the kernel */
    SysRes res;
    SizeT szB = 0;
@@ -615,7 +660,7 @@ SysRes VG_(poll) (struct vki_pollfd *fds, Int nfds, Int timeout)
                           (UWord)fds, nfds, 
                           (UWord)(timeout >= 0 ? &timeout_ts : NULL),
                           (UWord)NULL);
-#  elif defined(VGO_linux)
+#  elif defined(VGO_linux) || defined(VGO_netbsd)
    res = VG_(do_syscall3)(__NR_poll, (UWord)fds, nfds, timeout);
 #  elif defined(VGO_darwin)
    res = VG_(do_syscall3)(__NR_poll_nocancel, (UWord)fds, nfds, timeout);
@@ -650,7 +695,7 @@ SSizeT VG_(readlink) (const HChar* path, HChar* buf, SizeT bufsiz)
 #  if defined(VGP_arm64_linux) || defined(VGP_tilegx_linux)
    res = VG_(do_syscall4)(__NR_readlinkat, VKI_AT_FDCWD,
                                            (UWord)path, (UWord)buf, bufsiz);
-#  elif defined(VGO_linux) || defined(VGO_darwin)
+#  elif defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    res = VG_(do_syscall3)(__NR_readlink, (UWord)path, (UWord)buf, bufsiz);
 #  elif defined(VGO_solaris)
    res = VG_(do_syscall4)(__NR_readlinkat, VKI_AT_FDCWD, (UWord)path,
@@ -709,6 +754,14 @@ Int VG_(getdents64) (Int fd, struct vki_dirent64 *dirp, UInt count)
 }
 #endif
 
+#if defined(VGO_netbsd)
+Int VG_(getdents) (Int fd, struct vki_dirent *dirp, UInt count)
+{
+   SysRes res = VG_(do_syscall3)(__NR_getdents, fd, (UWord)dirp, count);
+   return sr_isError(res) ? -1 : sr_Res(res);
+}
+#endif
+
 /* Check accessibility of a file.  Returns zero for access granted,
    nonzero otherwise. */
 Int VG_(access) ( const HChar* path, Bool irusr, Bool iwusr, Bool ixusr )
@@ -728,7 +781,7 @@ Int VG_(access) ( const HChar* path, Bool irusr, Bool iwusr, Bool ixusr )
              | (ixusr ? VKI_X_OK : 0);
 #  if defined(VGP_arm64_linux) || defined(VGP_tilegx_linux)
    SysRes res = VG_(do_syscall3)(__NR_faccessat, VKI_AT_FDCWD, (UWord)path, w);
-#  elif defined(VGO_linux) || defined(VGO_darwin)
+#  elif defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall2)(__NR_access, (UWord)path, w);
 #  elif defined(VGO_solaris)
    SysRes res = VG_(do_syscall4)(__NR_faccessat, VKI_AT_FDCWD, (UWord)path,
@@ -891,6 +944,10 @@ SysRes VG_(pread) ( Int fd, void* buf, Int count, OffT offset )
    vg_assert(sizeof(OffT) == 8);
    res = VG_(do_syscall4)(__NR_pread, fd, (UWord)buf, count, offset);
    return res;
+#  elif defined(VGP_amd64_netbsd)
+   vg_assert(sizeof(OffT) == 8);
+   res = VG_(do_syscall5)(__NR_pread, fd, (UWord)buf, count, 0, offset);
+   return res;
 #  else
 #    error "Unknown platform"
 #  endif
@@ -1025,7 +1082,7 @@ UShort VG_(ntohs) ( UShort x )
 */
 Int VG_(connect_via_socket)( const HChar* str )
 {
-#  if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris) || defined(VGO_netbsd)
    Int sd, res;
    struct vki_sockaddr_in servAddr;
    UInt   ip   = 0;
@@ -1131,16 +1188,15 @@ Int VG_(socket) ( Int domain, Int type, Int protocol )
    res = VG_(do_syscall3)(__NR_socket, domain, type, protocol );
    return sr_isError(res) ? -1 : sr_Res(res);
 
-#  elif defined(VGO_darwin)
+#  elif defined(VGO_darwin) || defined(VGO_netbsd)
    SysRes res;
    res = VG_(do_syscall3)(__NR_socket, domain, type, protocol);
    if (!sr_isError(res)) {
        // Set SO_NOSIGPIPE so write() returns EPIPE instead of raising SIGPIPE
        Int optval = 1;
-       SysRes res2;
-       res2 = VG_(do_syscall5)(__NR_setsockopt, sr_Res(res), VKI_SOL_SOCKET, 
-                               VKI_SO_NOSIGPIPE, (UWord)&optval, 
-                               sizeof(optval));
+       VG_(do_syscall5)(__NR_setsockopt, sr_Res(res), VKI_SOL_SOCKET,
+                        VKI_SO_NOSIGPIPE, (UWord)&optval,
+                        sizeof(optval));
        // ignore setsockopt() error
    }
    return sr_isError(res) ? -1 : sr_Res(res);
@@ -1198,6 +1254,11 @@ Int my_connect ( Int sockfd, struct vki_sockaddr_in* serv_addr, Int addrlen )
                           VKI_SOV_DEFAULT /*version*/);
    return sr_isError(res) ? -1 : sr_Res(res);
 
+#elif defined(VGO_netbsd)
+   SysRes res;
+   res = VG_(do_syscall3)(__NR_connect, sockfd, (UWord)serv_addr, addrlen);
+   return sr_isError(res) ? -1 : sr_Res(res);
+
 #  else
 #    error "Unknown arch"
 #  endif
@@ -1211,8 +1272,8 @@ Int VG_(write_socket)( Int sd, const void *msg, Int count )
       errors on stream oriented sockets when the other end breaks the
       connection. The EPIPE error is still returned.
 
-      For Darwin, VG_(socket)() sets SO_NOSIGPIPE to get EPIPE instead of 
-      SIGPIPE */
+      For Darwin and NetBSD, VG_(socket)() sets SO_NOSIGPIPE to get
+      EPIPE instead of SIGPIPE */
 
 #  if defined(VGP_x86_linux) || defined(VGP_ppc32_linux) \
       || defined(VGP_ppc64be_linux) || defined(VGP_ppc64le_linux) \
@@ -1244,6 +1305,11 @@ Int VG_(write_socket)( Int sd, const void *msg, Int count )
    res = VG_(do_syscall4)(__NR_send, sd, (UWord)msg, count, 0 /*flags*/);
    return sr_isError(res) ? -1 : sr_Res(res);
 
+#  elif defined(VGO_netbsd)
+   SysRes res;
+   res = VG_(do_syscall3)(__NR_write, sd, (UWord)msg, count);
+   return sr_isError(res) ? -1 : sr_Res(res);
+
 #  else
 #    error "Unknown platform"
 #  endif
@@ -1271,7 +1337,7 @@ Int VG_(getsockname) ( Int sd, struct vki_sockaddr *name, Int *namelen)
                            (UWord)sd, (UWord)name, (UWord)namelen );
    return sr_isError(res) ? -1 : sr_Res(res);
 
-#  elif defined(VGO_darwin)
+#  elif defined(VGO_darwin) || defined(VGO_netbsd)
    SysRes res;
    res = VG_(do_syscall3)( __NR_getsockname,
                            (UWord)sd, (UWord)name, (UWord)namelen );
@@ -1310,7 +1376,7 @@ Int VG_(getpeername) ( Int sd, struct vki_sockaddr *name, Int *namelen)
                            (UWord)sd, (UWord)name, (UWord)namelen );
    return sr_isError(res) ? -1 : sr_Res(res);
 
-#  elif defined(VGO_darwin)
+#  elif defined(VGO_darwin) || defined(VGO_netbsd)
    SysRes res;
    res = VG_(do_syscall3)( __NR_getpeername,
                            (UWord)sd, (UWord)name, (UWord)namelen );
@@ -1352,7 +1418,7 @@ Int VG_(getsockopt) ( Int sd, Int level, Int optname, void *optval,
                            (UWord)optval, (UWord)optlen );
    return sr_isError(res) ? -1 : sr_Res(res);
 
-#  elif defined(VGO_darwin)
+#  elif defined(VGO_darwin) || defined(VGO_netbsd)
    SysRes res;
    res = VG_(do_syscall5)( __NR_getsockopt,
                            (UWord)sd, (UWord)level, (UWord)optname, 
@@ -1396,7 +1462,7 @@ Int VG_(setsockopt) ( Int sd, Int level, Int optname, void *optval,
                            (UWord)optval, (UWord)optlen );
    return sr_isError(res) ? -1 : sr_Res(res);
 
-#  elif defined(VGO_darwin)
+#  elif defined(VGO_darwin) || defined(VGO_netbsd)
    SysRes res;
    res = VG_(do_syscall5)( __NR_setsockopt,
                            (UWord)sd, (UWord)level, (UWord)optname, 

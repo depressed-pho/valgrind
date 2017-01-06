@@ -313,6 +313,18 @@ typedef
 
       /* True if this is daemon thread. */
       Bool daemon_thread;
+
+#     elif defined(VGO_netbsd)
+      /* GDT is not fully simulated by NetBSD/amd64. The %fs segment
+       * register is assumed to be always zero and vex->guest_FS_CONST
+       * holds the 64-bit offset associated with a %fs value of
+       * zero. */
+
+      /* Simulation of the kernel's lwp->l_ctxlink. Set in the PRE
+       * wrapper of the getcontext / setcontext syscalls. Used in
+       * VG_(save_context)(), VG_(restore_context)() and
+       * VG_(sigframe_create)(). */
+      vki_ucontext_t *oldcontext;
 #     endif
 
    }

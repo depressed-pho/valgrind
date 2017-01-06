@@ -72,6 +72,7 @@ struct vg_stat {
 };
 
 extern SysRes VG_(mknod)  ( const HChar* pathname, Int mode, UWord dev );
+extern SysRes VG_(mkfifo) ( const HChar* pathname, Int mode );
 extern SysRes VG_(open)   ( const HChar* pathname, Int flags, Int mode );
 /* fd_open words like the open(2) system call: 
    returns fd if success, -1 otherwise */
@@ -95,6 +96,9 @@ extern SSizeT VG_(readlink)( const HChar* path, HChar* buf, SizeT bufsiz);
 
 #if defined(VGO_linux) || defined(VGO_solaris)
 extern Int    VG_(getdents64)( Int fd, struct vki_dirent64 *dirp, UInt count );
+#endif
+#if defined(VGO_netbsd)
+extern Int    VG_(getdents)( Int fd, struct vki_dirent *dirp, UInt count );
 #endif
 
 extern const HChar* VG_(basename)( const HChar* path );

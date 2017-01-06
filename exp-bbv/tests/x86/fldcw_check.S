@@ -114,6 +114,11 @@ print_error:
 	pushl	$error
 	pushl	$1
 	int 	$0x91
+#elif defined(VGO_netbsd)
+	pushl	$22
+	pushl	$error
+	pushl	$1
+	int	$0x80
 #else
 #  error "Unknown OS"
 #endif
@@ -129,6 +134,9 @@ exit:
 #elif defined(VGO_solaris)
 	pushl	result
 	int	$0x91
+#elif defined(VGO_netbsd)
+	pushl	result
+	int	$0x80
 #else
 #  error "Unknown OS"
 #endif

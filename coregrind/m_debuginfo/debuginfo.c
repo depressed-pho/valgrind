@@ -56,7 +56,7 @@
 #include "priv_tytypes.h"
 #include "priv_storage.h"
 #include "priv_readdwarf.h"
-#if defined(VGO_linux) || defined(VGO_solaris)
+#if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
 # include "priv_readelf.h"
 # include "priv_readdwarf3.h"
 # include "priv_readpdb.h"
@@ -596,7 +596,7 @@ void VG_(di_initialise) ( void )
 /*---                                                        ---*/
 /*--------------------------------------------------------------*/
 
-#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris)
+#if defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris) || defined(VGO_netbsd)
 
 /* Helper (indirect) for di_notify_ACHIEVE_ACCEPT_STATE */
 static Bool overlaps_DebugInfoMappings ( const DebugInfoMapping* map1,
@@ -744,7 +744,7 @@ static ULong di_notify_ACHIEVE_ACCEPT_STATE ( struct _DebugInfo* di )
    truncate_DebugInfoMapping_overlaps( di, di->fsm.maps );
 
    /* And acquire new info. */
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    ok = ML_(read_elf_debug_info)( di );
 #  elif defined(VGO_darwin)
    ok = ML_(read_macho_debug_info)( di );
@@ -1021,7 +1021,7 @@ ULong VG_(di_notify_mmap)( Addr a, Bool allow_SkFileV, Int use_fd )
    vg_assert(sr_Res(preadres) > 0 && sr_Res(preadres) <= sizeof(buf1k) );
 
    /* We're only interested in mappings of object files. */
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    if (!ML_(is_elf_object_file)( buf1k, (SizeT)sr_Res(preadres), False ))
       return 0;
 #  elif defined(VGO_darwin)
@@ -1426,7 +1426,8 @@ void VG_(di_notify_pdb_debuginfo)( Int fd_obj, Addr avma_obj,
    if (pdbname) ML_(dinfo_free)(pdbname);
 }
 
-#endif /* defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_solaris) */
+#endif /* defined(VGO_linux) || defined(VGO_darwin) ||
+          defined(VGO_solaris) || defined(VGO_netbsd) */
 
 
 /*------------------------------------------------------------*/
@@ -1992,6 +1993,8 @@ Vg_FnNameKind VG_(get_fnname_kind) ( const HChar* name )
        VG_STREQ("start_according_to_valgrind", name) ||  // Darwin, darling
 #      elif defined(VGO_solaris)
        VG_STREQ("_start", name) || // main() is called directly from _start
+#      elif defined(VGO_netbsd)
+       VG_STREQ("___start", name) || // See /usr/src/lib/csu/common/crt0-common.c
 #      else
 #        error "Unknown OS"
 #      endif

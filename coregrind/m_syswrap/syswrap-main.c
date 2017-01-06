@@ -98,6 +98,12 @@
    "+N" denotes "in memory at N(%esp)". Solaris also supports fasttrap
    syscalls. Fasttraps do not take any parameters (except of the sysno in eax)
    and never fail (if the sysno is valid).
+
+          NUM   ARG1 ARG2 ARG3 ARG4 ARG5 ARG6 ARG7 ARG8 RESULT
+   NETBSD:
+   amd64  rax   rdi  rsi  rdx  r10  r8   r9   +8   +16  rdx:rax, rflags.c
+
+   For amd64-netbsd, "+N" denotes "in memory at N(%esp)".
 */
 
 /* This is the top level of the system-call handler module.  All
@@ -185,6 +191,10 @@
      x86:    Success(N) ==>  edx:eax = N, cc = 0
              Fail(N)    ==>      eax = N, cc = 1
      Same applies for fasttraps except they never fail.
+
+     NetBSD:
+     amd64:  Success(N) ==>  rdx:rax = N, cc = 0
+             Fail(N)    ==>      rax = N, cc = 1
 
    * The post wrapper is called if:
 
@@ -323,6 +333,14 @@ UWord ML_(do_syscall_for_client_dret_WRK)( Word syscallno,
                                            const vki_sigset_t *syscall_mask,
                                            const vki_sigset_t *restore_mask,
                                            UChar *cflag);
+
+#elif defined(VGO_netbsd)
+UWord ML_(do_syscall_for_client_WRK)( Word syscallno,
+                                      void* guest_state,
+                                      const vki_sigset_t *syscall_mask,
+                                      const vki_sigset_t *restore_mask,
+                                      UChar *cflag);
+
 #else
 #  error "Unknown OS"
 #endif
@@ -393,6 +411,22 @@ void do_syscall_for_client ( Int syscallno,
 #  else
 #    error "Unknown platform"
 #  endif
+
+#  elif defined(VGO_netbsd)
+   UChar cflag;
+
+   err = ML_(do_syscall_for_client_WRK)(
+                syscallno, &tst->arch.vex,
+                syscall_mask, &saved, &cflag
+            );
+   /* Save the carry flag. */
+#    if defined(VGA_x86)
+   LibVEX_GuestX86_put_eflag_c(cflag, &tst->arch.vex);
+#    elif defined(VGA_amd64)
+   LibVEX_GuestAMD64_put_rflag_c(cflag, &tst->arch.vex);
+#    else
+#      error "Unknown architecture"
+#    endif
 
 #  else
 #    error "Unknown OS"
@@ -780,6 +814,20 @@ void getSyscallArgsFromGuestState ( /*OUT*/SyscallArgs*       canonical,
       break;
    }
 
+#elif defined(VGP_amd64_netbsd)
+   VexGuestAMD64State* gst = (VexGuestAMD64State*)gst_vanilla;
+   UWord *stack = (UWord *)gst->guest_RSP;
+   canonical->sysno = gst->guest_RAX;
+   /* stack[0] is a return address. */
+   canonical->arg1 = gst->guest_RDI;
+   canonical->arg2 = gst->guest_RSI;
+   canonical->arg3 = gst->guest_RDX;
+   canonical->arg4 = gst->guest_R10;  /* Not RCX with syscall. */
+   canonical->arg5 = gst->guest_R8;
+   canonical->arg6 = gst->guest_R9;
+   canonical->arg7 = stack[1];
+   canonical->arg8 = stack[2];
+
 #else
 #  error "getSyscallArgsFromGuestState: unknown arch"
 #endif
@@ -971,6 +1019,23 @@ void putSyscallArgsIntoGuestState ( /*IN*/ SyscallArgs*       canonical,
    stack[1] = canonical->arg7;
    stack[2] = canonical->arg8;
 
+#elif defined(VGP_amd64_netbsd)
+   VexGuestAMD64State* gst = (VexGuestAMD64State*)gst_vanilla;
+   UWord *stack = (UWord *)gst->guest_RSP;
+
+   gst->guest_RAX = canonical->sysno;
+
+   gst->guest_RAX = canonical->sysno;
+   /* stack[0] is a return address. */
+   gst->guest_RDI = canonical->arg1;
+   gst->guest_RSI = canonical->arg2;
+   gst->guest_RDX = canonical->arg3;
+   gst->guest_R10 = canonical->arg4;
+   gst->guest_R8  = canonical->arg5;
+   gst->guest_R9  = canonical->arg6;
+   stack[1] = canonical->arg7;
+   stack[2] = canonical->arg8;
+
 #else
 #  error "putSyscallArgsIntoGuestState: unknown arch"
 #endif
@@ -1120,6 +1185,15 @@ void getSyscallStatusFromGuestState ( /*OUT*/SyscallStatus*     canonical,
    canonical->sres = VG_(mk_SysRes_amd64_solaris)(carry ? True : False,
                                                   gst->guest_RAX,
                                                   carry ? 0 : gst->guest_RDX);
+   canonical->what = SsComplete;
+
+#  elif defined(VGP_amd64_netbsd)
+   VexGuestAMD64State* gst = (VexGuestAMD64State*)gst_vanilla;
+   UInt carry = 1 & LibVEX_GuestAMD64_get_rflags(gst);
+
+   canonical->sres = VG_(mk_SysRes_amd64_netbsd)(carry ? True : False,
+                                                 gst->guest_RAX,
+                                                 carry ? 0 : gst->guest_RDX);
    canonical->what = SsComplete;
 
 #  else
@@ -1374,7 +1448,7 @@ void putSyscallStatusIntoGuestState ( /*IN*/ ThreadId tid,
    VG_TRACK(post_reg_write, Vg_CoreSysCall, tid, offsetof(VexGuestX86State,
             guest_CC_DEP2), sizeof(UInt));
 
-#  elif defined(VGP_amd64_solaris)
+#  elif defined(VGP_amd64_solaris) || defined(VGP_amd64_netbsd)
    VexGuestAMD64State* gst = (VexGuestAMD64State*)gst_vanilla;
    SysRes sres = canonical->sres;
    vg_assert(canonical->what == SsComplete);
@@ -1561,7 +1635,7 @@ void getSyscallArgLayout ( /*OUT*/SyscallArgLayout* layout )
    layout->s_arg7   = sizeof(UWord) * 7;
    layout->s_arg8   = sizeof(UWord) * 8;
 
-#elif defined(VGP_amd64_solaris)
+#elif defined(VGP_amd64_solaris) || defined(VGP_amd64_netbsd)
    layout->o_sysno  = OFFSET_amd64_RAX;
    layout->o_arg1   = OFFSET_amd64_RDI;
    layout->o_arg2   = OFFSET_amd64_RSI;
@@ -1645,6 +1719,9 @@ static const SyscallTableEntry* get_syscall_entry ( Int syscallno )
 
 #  elif defined(VGO_solaris)
    sys = ML_(get_solaris_syscall_entry)(syscallno);
+
+#  elif defined(VGO_netbsd)
+   sys = ML_(get_netbsd_syscall_entry)(syscallno);
 
 #  else
 #    error Unknown OS
@@ -2229,7 +2306,7 @@ void VG_(post_syscall) (ThreadId tid)
 /* These are addresses within ML_(do_syscall_for_client_WRK).  See
    syscall-$PLAT.S for details. 
 */
-#if defined(VGO_linux)
+#if defined(VGO_linux) || defined(VGO_netbsd)
   extern const Addr ML_(blksys_setup);
   extern const Addr ML_(blksys_restart);
   extern const Addr ML_(blksys_complete);
@@ -2289,7 +2366,7 @@ void ML_(fixup_guest_state_to_restart_syscall) ( ThreadArchState* arch )
       vg_assert(p[0] == 0xcd && p[1] == 0x80);
    }
 
-#elif defined(VGP_amd64_linux)
+#elif defined(VGP_amd64_linux) || defined(VGP_amd64_netbsd)
    arch->vex.guest_RIP -= 2;             // sizeof(syscall)
 
    /* Make sure our caller is actually sane, and we're really backing
@@ -2649,7 +2726,7 @@ VG_(fixup_guest_state_after_syscall_interrupted)( ThreadId tid,
    th_regs = &tst->arch;
    sci     = & syscallInfo[tid];
 
-#  if defined(VGO_linux)
+#  if defined(VGO_linux) || defined(VGO_netbsd)
    outside_range
       = ip < ML_(blksys_setup) || ip >= ML_(blksys_finished);
    in_setup_to_restart

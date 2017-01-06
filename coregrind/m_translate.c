@@ -1688,6 +1688,11 @@ Bool VG_(translate) ( ThreadId tid,
    vex_abiinfo.guest_mips_fp_mode64 =
       !!(arch->vex.guest_CP0_status & MIPS_CP0_STATUS_FR);
 #  endif
+#  if defined(VGP_amd64_netbsd)
+   /* Both are constant zero. */
+   vex_abiinfo.guest_amd64_assume_fs_is_const = True;
+   vex_abiinfo.guest_amd64_assume_gs_is_const = True;
+#  endif
 
    /* Set up closure args. */
    closure.tid    = tid;

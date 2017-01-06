@@ -243,7 +243,7 @@
 
 /* --- Soname of the standard C library. --- */
 
-#if defined(VGO_linux) || defined(VGO_solaris)
+#if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
 #  define  VG_Z_LIBC_SONAME  libcZdsoZa              // libc.so*
 
 #elif defined(VGO_darwin) && (DARWIN_VERS <= DARWIN_10_6)
@@ -280,6 +280,8 @@
 #elif defined(VGO_darwin)
 #  define  VG_Z_LIBPTHREAD_SONAME  libSystemZdZaZddylib  // libSystem.*.dylib
 #elif defined(VGO_solaris)
+#  define  VG_Z_LIBPTHREAD_SONAME  libpthreadZdsoZd1     // libpthread.so.1
+#elif defined(VGO_netbsd)
 #  define  VG_Z_LIBPTHREAD_SONAME  libpthreadZdsoZd1     // libpthread.so.1
 #else
 #  error "Unknown platform"
@@ -339,6 +341,16 @@
 
 #define  VG_Z_LIBUMEM_SO_1          libumemZdsoZd1             // libumem.so.1
 #define  VG_U_LIBUMEM_SO_1          "libumem.so.1"
+
+#endif
+
+/* --- Sonames for NetBSD ELF linkers, plus unencoded versions. --- */
+// Note: run-time linker contains absolute pathname in the SONAME.
+
+#if defined(VGO_netbsd)
+
+#  define VG_Z_LD_ELF_SO            ZslibexecZsldZdelfZuso       // /libexec/ld.elf_so
+#  define VG_U_LD_ELF_SO            "/libexec/ld.elf_so"
 
 #endif
 

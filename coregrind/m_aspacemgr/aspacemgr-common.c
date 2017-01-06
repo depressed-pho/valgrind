@@ -186,6 +186,12 @@ SysRes VG_(am_do_mmap_NO_NOTIFY)( Addr start, SizeT length, UInt prot,
       fd = -1;
    res = VG_(do_syscall6)(__NR_mmap, (UWord)start, length, prot, flags,
                           (UInt)fd, offset);
+#  elif defined(VGP_amd64_netbsd)
+   /* MAP_ANON with fd!=-1 is EINVAL. */
+   if (fd != -1 && (flags & VKI_MAP_ANONYMOUS))
+       fd = -1;
+   res = VG_(do_syscall7)(__NR_mmap, (UWord)start, length, prot, flags,
+                          (UInt)fd, 0, offset);
 #  else
 #    error Unknown platform
 #  endif
@@ -222,6 +228,15 @@ SysRes ML_(am_do_extend_mapping_NO_NOTIFY)(
              0/*flags, meaning: must be at old_addr, else FAIL */,
              0/*new_addr, is ignored*/
           );
+
+#  elif defined(VGO_netbsd)
+   return VG_(do_syscall5)(
+             __NR_mremap,
+             old_addr, old_len,
+             old_addr, new_len, /* request the same base address */
+             VKI_MAP_FIXED /* flags, meaning: must be at old_addr, else FAIL */
+          );
+
 #  else
 #    error Unknown OS
 #  endif
@@ -243,6 +258,14 @@ SysRes ML_(am_do_relocate_nooverlap_mapping_NO_NOTIFY)(
              VKI_MREMAP_MAYMOVE|VKI_MREMAP_FIXED/*move-or-fail*/,
              new_addr
           );
+
+#  elif defined(VGO_netbsd)
+   return VG_(do_syscall5)(
+             __NR_mremap,
+             old_addr, old_len,
+             new_addr, new_len,
+             VKI_MAP_FIXED /* move-or-fail */
+          );
 #  else
 #    error Unknown OS
 #  endif
@@ -261,8 +284,9 @@ SysRes ML_(am_open) ( const HChar* pathname, Int flags, Int mode )
 #  elif defined(VGP_tilegx_linux)
    SysRes res = VG_(do_syscall4)(__NR_openat, VKI_AT_FDCWD, (UWord)pathname,
                                  flags, mode);
-#  elif defined(VGO_linux) || defined(VGO_darwin)
+#  elif defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall3)(__NR_open, (UWord)pathname, flags, mode);
+
 #  elif defined(VGO_solaris)
    SysRes res = VG_(do_syscall4)(__NR_openat, VKI_AT_FDCWD, (UWord)pathname,
                                  flags, mode);
@@ -292,8 +316,10 @@ Int ML_(am_readlink)(const HChar* path, HChar* buf, UInt bufsiz)
 #  elif defined(VGP_tilegx_linux)
    res = VG_(do_syscall4)(__NR_readlinkat, VKI_AT_FDCWD, (UWord)path,
                           (UWord)buf, bufsiz);
-#  elif defined(VGO_linux) || defined(VGO_darwin)
+
+#  elif defined(VGO_linux) || defined(VGO_darwin) || defined(VGO_netbsd)
    res = VG_(do_syscall3)(__NR_readlink, (UWord)path, (UWord)buf, bufsiz);
+
 #  elif defined(VGO_solaris)
    res = VG_(do_syscall4)(__NR_readlinkat, VKI_AT_FDCWD, (UWord)path,
                           (UWord)buf, bufsiz);
@@ -305,12 +331,14 @@ Int ML_(am_readlink)(const HChar* path, HChar* buf, UInt bufsiz)
 
 Int ML_(am_fcntl) ( Int fd, Int cmd, Addr arg )
 {
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    SysRes res = VG_(do_syscall3)(__NR_fcntl, fd, cmd, arg);
+
 #  elif defined(VGO_darwin)
    SysRes res = VG_(do_syscall3)(__NR_fcntl_nocancel, fd, cmd, arg);
+
 #  else
-#  error "Unknown OS"
+#    error "Unknown OS"
 #  endif
    return sr_isError(res) ? -1 : sr_Res(res);
 }
@@ -362,6 +390,18 @@ Bool ML_(am_get_fd_d_i_m)( Int fd,
       return True;
    }
    return False;
+
+#  elif defined(VGO_netbsd)
+   struct vki_stat buf;
+   SysRes res = VG_(do_syscall2)(__NR_fstat, fd, (UWord)&buf);
+   if (!sr_isError(res)) {
+      *dev  = (ULong)buf.st_dev;
+      *ino  = (ULong)buf.st_ino;
+      *mode = (UInt) buf.st_mode;
+      return True;
+   }
+   return False;
+
 #  else
 #    error Unknown OS
 #  endif
@@ -399,6 +439,33 @@ Bool ML_(am_resolve_filename) ( Int fd, /*OUT*/HChar* buf, Int nbuf )
       return True;
    else
       return False;
+
+#elif defined(VGO_netbsd)
+   /* On this platform the only way to resolve a file name is to
+    * lookup it in our recorded fd table. /proc/self/fd/# do exist but
+    * they are (sort of) hard links, not symlinks.
+    *
+    * But even though we know it won't work, trying it anyway would
+    * not hurt. The procfs on NetBSD is supposed to emulate what Linux
+    * does so we hope someday it may have full emulation.
+    */
+   Int i;
+   HChar tmp[64];    // large enough
+   for (i = 0; i < nbuf; i++) buf[i] = 0;
+   ML_(am_sprintf)(tmp, "/proc/self/fd/%d", fd);
+   if (ML_(am_readlink)(tmp, buf, nbuf) > 0 && buf[0] == '/') {
+      return True;
+   }
+   else {
+       const HChar *rec = VG_(find_fd_recorded_by_fd)(fd);
+       if (rec) {
+           VG_(strncpy)(buf, rec, nbuf);
+           return True;
+       }
+       else {
+           return False;
+       }
+   }
 
 #  else
 #     error Unknown OS

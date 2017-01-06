@@ -380,7 +380,6 @@ check_PROGRAMS =      \
   pth_detached3       \
   pth_inconsistent_cond_wait \
   pth_mutex_reinit    \
-  pth_process_shared_mutex   \
   pth_uninitialized_cond \
   recursive_mutex     \
   rwlock_race         \
@@ -441,6 +440,10 @@ endif
 
 if HAVE_PTHREAD_SPINLOCK
 check_PROGRAMS += pth_spinlock
+endif
+
+if HAVE_PTHREAD_MUTEXATTR_SETPSHARED
+check_PROGRAMS += pth_process_shared_mutex
 endif
 
 if !VGCONF_OS_IS_DARWIN

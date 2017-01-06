@@ -146,6 +146,30 @@ struct _IIFinaliseImageInfo {
    Addr  initial_client_TP; /* thread pointer */
 };
 
+/* ------------------------- NetBSD ------------------------- */
+
+#elif defined(VGO_netbsd)
+
+struct _IICreateImageInfo {
+   /* ------ Mandatory fields ------ */
+   const HChar* toolname;
+   Addr    sp_at_startup;
+   Addr    clstack_end; /* highest stack addressable byte */
+   /* ------ Per-OS fields ------ */
+   HChar** argv;
+   HChar** envp;
+};
+
+struct _IIFinaliseImageInfo {
+   /* ------ Mandatory fields ------ */
+   SizeT clstack_max_size;
+   Addr  initial_client_SP;
+   /* ------ Per-OS fields ------ */
+   Addr  initial_client_IP;
+   UInt* client_auxv;
+   struct vki_ps_strings* client_pss;
+};
+
 #else
 #  error "Unknown OS"
 #endif

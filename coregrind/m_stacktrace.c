@@ -499,7 +499,7 @@ UInt VG_(get_StackTrace_wrk) ( ThreadId tid_if_known,
 /* ----------------------- amd64 ------------------------ */
 
 #if defined(VGP_amd64_linux) || defined(VGP_amd64_darwin) \
-    || defined(VGP_amd64_solaris)
+    || defined(VGP_amd64_solaris) || defined(VGP_amd64_netbsd)
 
 UInt VG_(get_StackTrace_wrk) ( ThreadId tid_if_known,
                                /*OUT*/Addr* ips, UInt max_n_ips,
@@ -548,14 +548,14 @@ UInt VG_(get_StackTrace_wrk) ( ThreadId tid_if_known,
    if (fp_min + 256 >= fp_max) {
       /* If the stack limits look bogus, don't poke around ... but
          don't bomb out either. */
-#  elif defined(VGO_solaris)
+#  elif defined(VGO_solaris) || defined(VGO_netbsd)
    if (fp_max == 0) {
       /* VG_(get_StackTrace)() can be called by tools very early when
          various tracing options are enabled. Don't proceed further
          if the stack limits look bogus.
        */
 #  endif
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
 
       if (sps) sps[0] = uregs.xsp;
       if (fps) fps[0] = uregs.xbp;

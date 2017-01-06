@@ -77,7 +77,7 @@ void VG_(vki_do_initial_consistency_checks) ( void )
 
    /* --- Platform-specific checks on signal sets --- */
 
-#  if defined(VGO_linux) || defined(VGO_solaris)
+#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
    /* nothing to check */
 #  elif defined(VGP_x86_darwin) || defined(VGP_amd64_darwin)
    vg_assert(_VKI_NSIG == NSIG);
@@ -135,6 +135,20 @@ void VG_(vki_do_initial_consistency_checks) ( void )
              == sizeof(vki_sigaction_fromK_t));
    /* VKI_SET_SIGMASK is hardwired into syscall-x86-solaris.S
       and syscall-amd64-solaris.S */
+   vg_assert(VKI_SIG_SETMASK == 3);
+
+#  elif defined(VGO_netbsd)
+   /* the toK- and fromK- forms differ by one function-pointer field
+    * (sa_tramp) and one int field (sa_tramp_abi) */
+   vg_assert(sizeof(struct sigaction) == sizeof(vki_sigaction_fromK_t));
+   { struct sigaction      t1;
+     vki_sigaction_toK_t   t2;
+     vg_assert(sizeof(t1.sa_handler) == sizeof(t2.ksa_handler));
+     vg_assert(sizeof(t1.sa_mask   ) == sizeof(t2.sa_mask    ));
+     vg_assert(sizeof(t1.sa_flags  ) == sizeof(t2.sa_flags   ));
+   }
+   /* VKI_SET_SIGMASK is hardwired into syscall-x86-netbsd.S
+    * and syscall-amd64-netbsd.S */
    vg_assert(VKI_SIG_SETMASK == 3);
 
 #  else

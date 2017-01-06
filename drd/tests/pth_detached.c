@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#if defined(__NetBSD__) && !defined(PTHREAD_STACK_MIN)
+#  define PTHREAD_STACK_MIN 16384
+#endif
+
 static int s_finished_count; /* protected by s_mutex */
 static pthread_mutex_t s_mutex;
 static pthread_cond_t s_cond;

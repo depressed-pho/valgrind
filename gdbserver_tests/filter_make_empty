@@ -2,9 +2,15 @@
 
 # A filter filtering everything.
 
+dir=`dirname $0`
+
 # To still allow to see what is happening, the content
 # is copied to a file, together with date and process.
 
-ps -lf -p $PPID >> garbage.filtered.out
-date            >> garbage.filtered.out
-cat             >> garbage.filtered.out
+if ! $dir/../tests/os_test netbsd; then
+    # ps -lf is not portable and doesn't exist in NetBSD ps(1)
+    ps -lf -p $PPID >> garbage.filtered.out
+fi
+
+date >> garbage.filtered.out
+cat  >> garbage.filtered.out

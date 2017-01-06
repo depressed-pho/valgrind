@@ -8809,7 +8809,7 @@ static void door_call_pre_mem_params_data(ThreadId tid, Int fd,
    if (!VG_(clo_track_fds) && !ML_(fd_recorded)(fd)) {
       ML_(record_fd_open_named)(tid, fd);
    }
-   pathname = ML_(find_fd_recorded_by_fd)(fd);
+   pathname = VG_(find_fd_recorded_by_fd)(fd);
 
    /* Debug-only printing. */
    if (0) {
@@ -8945,7 +8945,7 @@ static void door_call_post_mem_params_rbuf(ThreadId tid, Int fd,
                                            const vki_door_desc_t *desc_ptr,
                                            vki_uint_t desc_num)
 {
-   const HChar *pathname = ML_(find_fd_recorded_by_fd)(fd);
+   const HChar *pathname = VG_(find_fd_recorded_by_fd)(fd);
 
    /* Debug-only printing. */
    if (0) {

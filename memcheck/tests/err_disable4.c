@@ -25,6 +25,10 @@
 #include <limits.h>    /* PTHREAD_STACK_MIN */
 #include "../include/valgrind.h"
 
+#if defined(__NetBSD__) && !defined(PTHREAD_STACK_MIN)
+#  define PTHREAD_STACK_MIN 16384
+#endif
+
 char* block = NULL;
 #  if !defined(VGO_darwin)
 sem_t sem;

@@ -7,7 +7,9 @@
    Also, a high nr of threads in thr[] is needed to get
    the problem. */
 #include <pthread.h>
-#include <alloca.h>
+#if !defined(__NetBSD__)
+#  include <alloca.h>
+#endif
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>

@@ -21,6 +21,8 @@
 #undef PLAT_tilegx_linux
 #undef PLAT_x86_solaris
 #undef PLAT_amd64_solaris
+#undef PLAT_x86_netbsd
+#undef PLAT_amd64_netbsd
 
 #if defined(__APPLE__) && defined(__i386__)
 #  define PLAT_x86_darwin 1
@@ -48,12 +50,17 @@
 #  define PLAT_x86_solaris 1
 #elif defined(__sun__) && defined(__x86_64__)
 #  define PLAT_amd64_solaris 1
+#elif defined(__NetBSD__) && defined(__i386__)
+#  define PLAT_x86_netbsd 1
+#elif defined(__NetBSD__) && defined(__x86_64__)
+#  define PLAT_amd64_netbsd 1
 #endif
 
 
 #if defined(PLAT_amd64_linux) || defined(PLAT_x86_linux) \
     || defined(PLAT_amd64_darwin) || defined(PLAT_x86_darwin) \
-    || defined(PLAT_amd64_solaris) || defined(PLAT_x86_solaris)
+    || defined(PLAT_amd64_solaris) || defined(PLAT_x86_solaris) \
+    || defined(PLAT_amd64_netbsd) || defined(PLAT_x86_netbsd)
 #  define XCHG_M_R(_addr,_lval) \
      __asm__ __volatile__( \
         "xchgl %0, %1" \

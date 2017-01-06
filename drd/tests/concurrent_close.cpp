@@ -9,6 +9,10 @@
 #include <pthread.h>
 #include <unistd.h>   /* close() */
 
+#if defined(__NetBSD__) && !defined(PTHREAD_STACK_MIN)
+#  define PTHREAD_STACK_MIN 16384
+#endif
+
 /* Happens with two threads also */
 #define THREAD_COUNT 256
 

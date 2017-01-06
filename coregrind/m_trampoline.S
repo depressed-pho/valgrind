@@ -1636,10 +1636,21 @@ VG_(amd64_solaris_REDIR_FOR_strlen):
 .global VG_(trampoline_stuff_end)
 VG_(trampoline_stuff_end):
 
+/*---------------- amd64-netbsd ----------------*/
+#else
+#if defined(VGP_amd64_netbsd)
+
+.global VG_(trampoline_stuff_start)
+VG_(trampoline_stuff_start):
+
+.global VG_(trampoline_stuff_end)
+VG_(trampoline_stuff_end):
+
 /*---------------- unknown ----------------*/
 #else
 #  error Unknown platform
 
+#endif
 #endif
 #endif
 #endif

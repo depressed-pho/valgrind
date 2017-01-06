@@ -254,6 +254,13 @@ static const char *select_platform(const char *clientname)
                platform = "amd64-solaris";
             }
             else
+#           elif defined(VGO_netbsd)
+            if (ehdr->e_machine == EM_X86_64 &&
+                (ehdr->e_ident[EI_OSABI] == ELFOSABI_SYSV ||
+                 ehdr->e_ident[EI_OSABI] == ELFOSABI_NETBSD)) {
+               platform = "amd64-netbsd";
+            }
+            else
 #           endif
             if (ehdr->e_machine == EM_X86_64 &&
                 (ehdr->e_ident[EI_OSABI] == ELFOSABI_SYSV ||
@@ -380,6 +387,9 @@ int main(int argc, char** argv, char** envp)
    if ((0==strcmp(VG_PLATFORM,"x86-solaris")) ||
        (0==strcmp(VG_PLATFORM,"amd64-solaris")))
       default_platform = SOLARIS_LAUNCHER_DEFAULT_PLATFORM;
+#  elif defined(VGO_netbsd)
+   if ((0==strcmp(VG_PLATFORM,"amd64-netbsd")))
+      default_platform = VG_PLATFORM;
 #  else
 #    error Unknown OS
 #  endif
@@ -405,7 +415,7 @@ int main(int argc, char** argv, char** envp)
    /* Figure out the name of this executable (viz, the launcher), so
       we can tell stage2.  stage2 will use the name for recursive
       invocations of valgrind on child processes. */
-#  if defined(VGO_linux)
+#  if defined(VGO_linux) || defined(VGO_netbsd)
    linkname = "/proc/self/exe";
 #  elif defined(VGO_solaris)
    linkname = "/proc/self/path/a.out";

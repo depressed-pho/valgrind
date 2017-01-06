@@ -20,6 +20,10 @@
 #include <stdlib.h>
 #include <unistd.h>  // getopt()
 
+#if defined(__NetBSD__) && !defined(PTHREAD_STACK_MIN)
+#  define PTHREAD_STACK_MIN 16384
+#endif
+
 
 /*********************/
 /* Type definitions. */
