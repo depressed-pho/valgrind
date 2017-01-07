@@ -1532,7 +1532,13 @@ void push_signal_frame ( ThreadId tid, const vki_siginfo_t *siginfo,
                          scss.scss_per_sig[sigNo].scss_handler,
                          scss.scss_per_sig[sigNo].scss_flags,
                          &tst->sig_mask,
-                         scss.scss_per_sig[sigNo].scss_restorer);
+#if defined(VGO_netbsd)
+                         scss.scss_per_sig[sigNo].scss_sa_tramp,
+                         scss.scss_per_sig[sigNo].scss_tramp_abi
+#else
+                         scss.scss_per_sig[sigNo].scss_restorer
+#endif
+      );
 }
 
 

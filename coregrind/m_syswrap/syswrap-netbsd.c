@@ -335,7 +335,6 @@ void VG_(save_context)(ThreadId tid, vki_ucontext_t *uc, CorePart part)
 
    /* Stack */
    if ((tst->altstack.ss_flags & VKI_SS_ONSTACK) == 0) {
-      /* Pretty bogus but this is what the kernel does. */
       uc->uc_stack.ss_sp    = (void*)tst->client_stack_highest_byte;
       uc->uc_stack.ss_size  = tst->client_stack_szB;
       uc->uc_stack.ss_flags = 0;

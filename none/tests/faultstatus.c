@@ -36,8 +36,16 @@
  * from underlying codes FC_OBJERR (x86) or ASYNC_BERR (sparc).
  */
 #if defined(VGO_solaris)
+#  define BUS_ERROR_SIGNAL   SIGBUS
 #  define BUS_ERROR_SI_CODE  BUS_OBJERR
+
+#elif defined(VGO_netbsd)
+/* However on NetBSD it results in SIGSEGV instead. */
+#  define BUS_ERROR_SIGNAL   SIGSEGV
+#  define BUS_ERROR_SI_CODE  SEGV_MAPERR
+
 #else
+#  define BUS_ERROR_SIGNAL   SIGBUS
 #  define BUS_ERROR_SI_CODE  BUS_ADRERR
 #endif
 
@@ -164,10 +172,10 @@ int main()
 	{
 		const struct test tests[] = {
 #define T(n, sig, code, addr) { test##n, sig, code, addr }
-			T(1, SIGSEGV,	SEGV_MAPERR,	BADADDR),
-			T(2, SIGSEGV,	SEGV_ACCERR,	mapping),
-			T(3, SIGBUS,	BUS_ERROR_SI_CODE, &mapping[FILESIZE+10]),
-			T(4, SIGFPE,    DIVISION_BY_ZERO_SI_CODE, 0),
+			T(1, SIGSEGV,		SEGV_MAPERR,		BADADDR),
+			T(2, SIGSEGV,		SEGV_ACCERR,		mapping),
+			T(3, BUS_ERROR_SIGNAL,	BUS_ERROR_SI_CODE,	&mapping[FILESIZE+10]),
+			T(4, SIGFPE,		DIVISION_BY_ZERO_SI_CODE, 0),
 #undef T
 		};
 

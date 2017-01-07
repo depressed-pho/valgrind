@@ -52,6 +52,9 @@
 #include <lwp.h>
 #define vki_lwpid_t lwpid_t
 
+#include <machine/frame.h>
+#define vki_sigframe_siginfo sigframe_siginfo
+
 #include <machine/mcontext.h>
 #if defined(VGA_amd64)
 #  define VKI_REG_RDI    _REG_RDI
