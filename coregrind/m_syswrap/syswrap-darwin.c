@@ -9876,7 +9876,7 @@ const SyscallTableEntry ML_(syscall_table)[] = {
    GENXY(__NR_dup2,        sys_dup2), 
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(91)),    // old getdopt
    MACXY(__NR_fcntl,       fcntl), 
-   GENX_(__NR_select,      sys_select), 
+   GENXY(__NR_select,      sys_select), 
    _____(VG_DARWIN_SYSCALL_CONSTRUCT_UNIX(94)),    // old setdopt
    GENX_(__NR_fsync,       sys_fsync), 
    GENX_(__NR_setpriority, sys_setpriority), 
@@ -10247,7 +10247,7 @@ const SyscallTableEntry ML_(syscall_table)[] = {
    MACXY(__NR_accept_nocancel,   accept),
    GENX_(__NR_msync_nocancel,    sys_msync),
    MACXY(__NR_fcntl_nocancel,    fcntl),
-   GENX_(__NR_select_nocancel,   sys_select),
+   GENXY(__NR_select_nocancel,   sys_select),
    GENX_(__NR_fsync_nocancel,    sys_fsync),
    MACX_(__NR_connect_nocancel,  connect),
    MACX_(__NR_sigsuspend_nocancel, sigsuspend),

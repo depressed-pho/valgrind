@@ -177,11 +177,11 @@ sigprocmask_failed:
 .globl ML_(blksys_complete)
 .globl ML_(blksys_committed)
 .globl ML_(blksys_finished)
-ML_(blksys_setup):      .long 1b
-ML_(blksys_restart):    .long 2b
-ML_(blksys_complete):   .long 3b
-ML_(blksys_committed):  .long 4b
-ML_(blksys_finished):   .long 5b
+ML_(blksys_setup):      .quad 1b
+ML_(blksys_restart):    .quad 2b
+ML_(blksys_complete):   .quad 3b
+ML_(blksys_committed):  .quad 4b
+ML_(blksys_finished):   .quad 5b
 .previous
 
 #endif // defined(VGP_amd64_netbsd)

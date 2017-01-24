@@ -425,18 +425,21 @@ void VG_(restore_context)(ThreadId tid, vki_ucontext_t *uc, CorePart part)
 #define POST(name)      DEFN_POST_TEMPLATE(netbsd, name)
 
 /* prototypes */
+DECL_TEMPLATE(netbsd, sys_exit);
 DECL_TEMPLATE(netbsd, sys_ioctl);
 DECL_TEMPLATE(netbsd, sys_mmap);
 DECL_TEMPLATE(netbsd, sys___syscall);
-DECL_TEMPLATE(netbsd, sys_sigprocmask14);
 DECL_TEMPLATE(netbsd, sys_ftruncate);
 DECL_TEMPLATE(netbsd, sys_sysctl);
+DECL_TEMPLATE(netbsd, sys_issetugid);
 DECL_TEMPLATE(netbsd, sys_getcontext);
+DECL_TEMPLATE(netbsd, sys_setcontext);
 DECL_TEMPLATE(netbsd, sys_lwp_create);
 DECL_TEMPLATE(netbsd, sys_lwp_exit);
 DECL_TEMPLATE(netbsd, sys_lwp_self);
 DECL_TEMPLATE(netbsd, sys_lwp_getprivate);
 DECL_TEMPLATE(netbsd, sys_lwp_setprivate);
+DECL_TEMPLATE(netbsd, sys_lwp_kill);
 DECL_TEMPLATE(netbsd, sys_lwp_unpark);
 DECL_TEMPLATE(netbsd, sys_lwp_unpark_all);
 DECL_TEMPLATE(netbsd, sys_lwp_ctl);
@@ -445,6 +448,36 @@ DECL_TEMPLATE(netbsd, sys_sigaction_sigtramp);
 DECL_TEMPLATE(netbsd, sys_lwp_park);
 
 /* implementation */
+PRE(sys_exit)
+{
+   /* void _exit(int status); */
+   PRINT("sys_exit( %ld )", SARG1);
+   PRE_REG_READ1(void, "exit", int, status);
+
+   for (ThreadId t = 1; t < VG_N_THREADS; t++) {
+      if (VG_(threads)[t].status == VgTs_Empty)
+         continue;
+
+      /* Assign the exit code, VG_(nuke_all_threads_except) will assign
+         the exitreason. */
+      VG_(threads)[t].os_state.exitcode = ARG1;
+   }
+
+   /* Indicate in all other threads that the process is exiting.
+      Then wait using VG_(reap_threads) for these threads to disappear.
+      See comments in syswrap-linux.c, PRE(sys_exit_group) wrapper,
+      for reasoning why this cannot give a deadlock. */
+   VG_(nuke_all_threads_except)(tid, VgSrc_ExitProcess);
+   VG_(reap_threads)(tid);
+   VG_(threads)[tid].exitreason = VgSrc_ExitThread;
+   /* We do assign VgSrc_ExitThread and not VgSrc_ExitProcess, as this thread
+      is the thread calling exit_group and so its registers must be considered
+      as not reachable. See pub_tool_machine.h VG_(apply_to_GP_regs). */
+
+   /* We have to claim the syscall already succeeded. */
+   SET_STATUS_Success(0);
+}
+
 PRE(sys_ioctl)
 {
    /* int
@@ -551,44 +584,6 @@ POST(sys___syscall)
    // XXX
 }
 
-PRE(sys_sigprocmask14)
-{
-   /* int
-    * sigprocmask(int how, const sigset_t * restrict set,
-    *     sigset_t * restrict oset);
-    */
-   PRINT("sys_sigprocmask14 ( %ld, %#lx, %#lx )", SARG1, ARG2, ARG3);
-   PRE_REG_READ3(int, "sigprocmask",
-                 int, how, vki_sigset_t *, set, vki_sigset_t *, oset);
-   if (ARG2)
-      PRE_MEM_READ("sigprocmask(set)", ARG2, sizeof(vki_sigset_t));
-   if (ARG3)
-      PRE_MEM_WRITE("sigprocmask(oset)", ARG3, sizeof(vki_sigset_t));
-
-   /* Be safe. */
-   if (ARG2 && !ML_(safe_to_deref((void*)ARG2, sizeof(vki_sigset_t)))) {
-      SET_STATUS_Failure(VKI_EFAULT);
-   }
-   if (ARG3 && !ML_(safe_to_deref((void*)ARG3, sizeof(vki_sigset_t)))) {
-      SET_STATUS_Failure(VKI_EFAULT);
-   }
-
-   if (!FAILURE)
-      SET_STATUS_from_SysRes(
-         VG_(do_sys_sigprocmask)(tid, ARG1 /*how*/, (vki_sigset_t*)ARG2,
-                                 (vki_sigset_t*)ARG3)
-         );
-
-   if (SUCCESS)
-      *flags |= SfPollAfter;
-}
-
-POST(sys_sigprocmask14)
-{
-   if (ARG3)
-      POST_MEM_WRITE(ARG3, sizeof(vki_sigset_t));
-}
-
 PRE(sys_ftruncate)
 {
    /* int ftruncate(int fd, off_t length); */
@@ -634,6 +629,13 @@ POST(sys_sysctl)
    }
 }
 
+PRE(sys_issetugid)
+{
+   /* int issetugid(void); */
+   PRINT("sys_issetugid ( )");
+   PRE_REG_READ0(int, "issetugid");
+}
+
 PRE(sys_getcontext)
 {
    /* int getcontext(ucontext_t *ucp); */
@@ -647,6 +649,21 @@ PRE(sys_getcontext)
    }
 
    VG_(save_context)(tid, (vki_ucontext_t *)ARG1, Vg_CoreSysCall);
+   SET_STATUS_Success(0);
+}
+
+PRE(sys_setcontext)
+{
+   /* int setcontext(ucontext_t *ucp); */
+   PRINT("sys_setcontext ( %#lx )", ARG1);
+   PRE_REG_READ1(int, "setcontext", vki_ucontext_t *, ucp);
+
+   if (!ML_(safe_to_deref)((void *)ARG1, sizeof(vki_ucontext_t))) {
+      SET_STATUS_Failure(VKI_EFAULT);
+      return;
+   }
+
+   VG_(restore_context)(tid, (vki_ucontext_t *)ARG1, Vg_CoreSysCall);
    SET_STATUS_Success(0);
 }
 
@@ -702,7 +719,8 @@ PRE(sys_lwp_create)
           * stack. But remember, it's the client that allocates the
           * client stack so we cannot really trust it's valid.
           */
-         ML_(guess_and_register_stack)((Addr)uc->uc_stack.ss_sp, ctst);
+         ML_(guess_and_register_stack)(
+            (Addr)uc->uc_stack.ss_sp + uc->uc_stack.ss_size - 1, ctst);
       }
       else {
          VG_(debugLog)(1, "syswrap-netbsd",
@@ -814,6 +832,33 @@ PRE(sys_lwp_setprivate)
 
    /* _lwp_set_private(2) never fails. */
    SET_STATUS_Success(0);
+}
+
+PRE(sys_lwp_kill)
+{
+   /* int _lwp_kill(lwpid_t target_lwp, int sig); */
+   PRINT("sys_lwp_kill ( %ld, %ld )", SARG1, SARG2);
+   PRE_REG_READ2(long, "_lwp_kill", vki_lwpid_t, target_lwp, int, sig);
+
+   if (!ML_(client_signal_OK)(SARG2)) {
+      SET_STATUS_Failure(VKI_EINVAL);
+      return;
+   }
+
+   /* If we're sending SIGKILL, check to see if the target is one of our
+    * threads and handle it specially. */
+   if (SARG2 == VKI_SIGKILL && ML_(do_sigkill)(SARG1, -1))
+      SET_STATUS_Success(0);
+   else
+      SET_STATUS_from_SysRes( VG_(do_syscall2)(SYSNO, ARG1, ARG2) );
+
+   if (VG_(clo_trace_signals))
+      VG_(message)(Vg_DebugMsg, "_lwp_kill: sent signal %lu to thread %lu\n",
+                   SARG2, SARG1);
+
+   /* This kill might have given us a pending signal.  Ask for a check once
+    * the syscall is done. */
+   *flags |= SfPollAfter;
 }
 
 PRE(sys_lwp_unpark)
@@ -975,35 +1020,46 @@ PRE(sys_lwp_park)
  */
 
 static SyscallTableEntry syscall_table[] = {
-   GENX_(__NR_exit,                 sys_exit),                  /*   1 */
+   NBDX_(__NR_exit,                 sys_exit),                  /*   1 */
+   GENX_(__NR_fork,                 sys_fork),                  /*   2 */
    GENXY(__NR_read,                 sys_read),                  /*   3 */
    GENX_(__NR_write,                sys_write),                 /*   4 */
    GENXY(__NR_open,                 sys_open),                  /*   5 */
    GENXY(__NR_close,                sys_close),                 /*   6 */
    GENX_(__NR_unlink,               sys_unlink),                /*  10 */
+   GENX_(__NR_getpid,               sys_getpid),                /*  20 */
+   GENX_(__NR_kill,                 sys_kill),                  /*  37 */
    NBDXY(__NR_ioctl,                sys_ioctl),                 /*  54 */
    GENX_(__NR_readlink,             sys_readlink),              /*  58 */
    GENXY(__NR_munmap,               sys_munmap),                /*  73 */
    GENXY(__NR_mprotect,             sys_mprotect),              /*  74 */
    GENXY(__NR_getrlimit,            sys_getrlimit),             /* 194 */
    NBDX_(__NR_mmap,                 sys_mmap),                  /* 197 */
-   GENX_(__NR_select,               sys_select),                /* 417 */
+   GENXY(__NR_select,               sys_select),                /* 417 */
    NBDXY(__NR___syscall,            sys___syscall),             /* 198 */
    NBDX_(__NR_ftruncate,            sys_ftruncate),             /* 201 */
    NBDXY(__NR_sysctl,               sys_sysctl),                /* 202 */
-   NBDXY(__NR_sigprocmask,          sys_sigprocmask14),         /* 293 */
+   GENXY(__NR_sigprocmask,          sys_sigprocmask),           /* 293 */
+   GENX_(__NR_sigsuspend,           sys_sigsuspend),            /* 294 */
+   NBDX_(__NR_issetugid,            sys_issetugid),             /* 305 */
    NBDX_(__NR_getcontext,           sys_getcontext),            /* 307 */
+   NBDX_(__NR_setcontext,           sys_setcontext),            /* 308 */
    NBDX_(__NR_lwp_create,           sys_lwp_create),            /* 309 */
    NBDX_(__NR_lwp_exit,             sys_lwp_exit),              /* 310 */
    NBDX_(__NR_lwp_self,             sys_lwp_self),              /* 311 */
    NBDX_(__NR_lwp_getprivate,       sys_lwp_getprivate),        /* 316 */
    NBDX_(__NR_lwp_setprivate,       sys_lwp_setprivate),        /* 317 */
+   NBDX_(__NR_lwp_kill,             sys_lwp_kill),              /* 318 */
    NBDX_(__NR_lwp_unpark,           sys_lwp_unpark),            /* 321 */
    NBDX_(__NR_lwp_unpark_all,       sys_lwp_unpark_all),        /* 322 */
    NBDXY(__NR_lwp_ctl,              sys_lwp_ctl),               /* 325 */
    NBDXY(__NR_sigaction_sigtramp,   sys_sigaction_sigtramp),    /* 340 */
    NBDX_(__NR_sched_yield,          sys_sched_yield),           /* 350 */
+   GENXY(__NR_setitimer,            sys_setitimer),             /* 425 */
+   GENXY(__NR_nanosleep,            sys_nanosleep),             /* 430 */
    GENXY(__NR_fstat,                sys_newfstat),              /* 440 */
+   GENXY(__NR_pselect,              sys_pselect),               /* 436 */
+   GENXY(__NR_wait4,                sys_wait4),                 /* 449 */
    NBDX_(__NR_lwp_park,             sys_lwp_park)               /* 478 */
 };
 

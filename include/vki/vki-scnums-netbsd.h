@@ -66,6 +66,7 @@
 #define __NR_getsockopt         SYS_getsockopt
 #define __NR_gettimeofday       SYS___gettimeofday50
 #define __NR_ioctl              SYS_ioctl
+#define __NR_issetugid          SYS_issetugid
 #define __NR_kill               SYS_kill
 #define __NR_lseek              SYS_lseek
 #define __NR_lwp_create         SYS__lwp_create
@@ -84,10 +85,12 @@
 #define __NR_mprotect           SYS_mprotect
 #define __NR_mremap             SYS_mremap
 #define __NR_munmap             SYS_munmap
+#define __NR_nanosleep          SYS___nanosleep50
 #define __NR_open               SYS_open
 #define __NR_pipe               SYS_pipe
 #define __NR_poll               SYS_poll
 #define __NR_pread              SYS_pread
+#define __NR_pselect            SYS___pselect50
 #define __NR_ptrace             SYS_ptrace
 #define __NR_read               SYS_read
 #define __NR_readlink           SYS_readlink
@@ -96,11 +99,13 @@
 #define __NR_select             SYS___select50
 #define __NR_semctl             SYS_____semctl50
 #define __NR_setcontext         SYS_setcontext
+#define __NR_setitimer          SYS___setitimer50
 #define __NR_setrlimit          SYS_setrlimit
 #define __NR_setsockopt         SYS_setsockopt
 #define __NR_shmctl             SYS___shmctl50
 #define __NR_sigaction_sigtramp SYS___sigaction_sigtramp
 #define __NR_sigprocmask        SYS___sigprocmask14
+#define __NR_sigsuspend         SYS___sigsuspend14
 #define __NR_sigtimedwait       SYS_____sigtimedwait50
 #define __NR_socket             SYS___socket30
 #define __NR_stat               SYS___stat50

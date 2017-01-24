@@ -704,7 +704,7 @@ static SyscallTableEntry syscall_main_table[] = {
    GENX_ (__NR_access, sys_access),
    PLAXY (__NR_pipe, sys_pipe),
    LINXY (__NR_pipe2, sys_pipe2),
-   GENX_ (__NR__newselect,sys_select),
+   GENXY (__NR__newselect,sys_select),
    LINX_ (__NR_sched_yield, sys_sched_yield),
    GENX_ (__NR_mremap, sys_mremap),
    GENX_ (__NR_msync, sys_msync),

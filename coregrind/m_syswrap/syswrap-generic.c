@@ -64,6 +64,7 @@
 
 #include "priv_types_n_macros.h"
 #include "priv_syswrap-generic.h"
+#include "priv_syswrap-main.h"
 
 #include "config.h"
 
@@ -3384,11 +3385,11 @@ PRE(sys_fork)
 
    if (!SUCCESS) return;
 
-#if defined(VGO_linux)
+#if defined(VGO_linux) || defined(VGO_netbsd)
    // RES is 0 for child, non-0 (the child's PID) for parent.
    is_child = ( RES == 0 ? True : False );
    child_pid = ( is_child ? -1 : RES );
-#elif defined(VGO_darwin) || defined(VGO_netbsd)
+#elif defined(VGO_darwin)
    // RES is the child's pid.  RESHI is 1 for child, 0 for parent.
    is_child = RESHI;
    child_pid = RES;
@@ -4333,18 +4334,75 @@ PRE(sys_select)
    PRE_REG_READ5(long, "select",
                  int, n, vki_fd_set *, readfds, vki_fd_set *, writefds,
                  vki_fd_set *, exceptfds, struct vki_timeval *, timeout);
-   // XXX: this possibly understates how much memory is read.
+   /* The internal structure of fd_set is platform-dependent so we
+    * can't assume anything about the actual number of bytes used in
+    * it. On little-endian platforms it is _usually_ (ARG1 + 7) / 8
+    * but this isn't guaranteed at all. This means we can only do
+    * PRE_MEM_WRITE assuming the entire fd_set will be written, and
+    * can't do PRE_MEM_READ. (Remember that select(2) both reads and
+    * writes fd sets.)
+    */
    if (ARG2 != 0)
-      PRE_MEM_READ( "select(readfds)",   
-		     ARG2, ARG1/8 /* __FD_SETSIZE/8 */ );
+      PRE_MEM_WRITE( "select(readfds)",
+                     ARG2, sizeof(vki_fd_set) );
    if (ARG3 != 0)
-      PRE_MEM_READ( "select(writefds)",  
-		     ARG3, ARG1/8 /* __FD_SETSIZE/8 */ );
+      PRE_MEM_WRITE( "select(writefds)",
+                     ARG3, sizeof(vki_fd_set) );
    if (ARG4 != 0)
-      PRE_MEM_READ( "select(exceptfds)", 
-		     ARG4, ARG1/8 /* __FD_SETSIZE/8 */ );
+      PRE_MEM_WRITE( "select(exceptfds)",
+                     ARG4, sizeof(vki_fd_set) );
    if (ARG5 != 0)
       PRE_timeval_READ( "select(timeout)", ARG5 );
+}
+
+POST(sys_select)
+{
+   if (ARG2 != 0)
+      POST_MEM_WRITE( ARG2, sizeof(vki_fd_set) );
+   if (ARG3 != 0)
+      POST_MEM_WRITE( ARG3, sizeof(vki_fd_set) );
+   if (ARG4 != 0)
+      POST_MEM_WRITE( ARG4, sizeof(vki_fd_set) );
+}
+
+PRE(sys_pselect)
+{
+   *flags |= SfMayBlock;
+   PRINT("sys_pselect ( %ld, %#lx, %#lx, %#lx, %#lx, %#lx )",
+         SARG1, ARG2, ARG3, ARG4, ARG5, ARG6);
+   PRE_REG_READ6(long, "pselect",
+                 int, nfds, vki_fd_set *, readfds, vki_fd_set *, writefds,
+                 vki_fd_set*, exceptfds, const struct vki_timeval *, timeout,
+                 const vki_sigset_t *, sigmask);
+   /* See comments on PRE(sys_select) */
+   if (ARG2 != 0)
+      PRE_MEM_WRITE( "select(readfds)",
+                     ARG2, sizeof(vki_fd_set) );
+   if (ARG3 != 0)
+      PRE_MEM_WRITE( "select(writefds)",
+                     ARG3, sizeof(vki_fd_set) );
+   if (ARG4 != 0)
+      PRE_MEM_WRITE( "select(exceptfds)",
+                     ARG4, sizeof(vki_fd_set) );
+   if (ARG5 != 0)
+      PRE_timeval_READ( "select(timeout)", ARG5 );
+
+   if (ARG6 != 0) {
+      vki_sigset_t *sigmask = (vki_sigset_t *)ARG6;
+
+      if (ML_(safe_to_deref)(sigmask, sizeof(*sigmask)))
+         VG_(sanitize_client_sigmask)(sigmask);
+   }
+}
+
+POST(sys_pselect)
+{
+   if (ARG2 != 0)
+      POST_MEM_WRITE( ARG2, sizeof(vki_fd_set) );
+   if (ARG3 != 0)
+      POST_MEM_WRITE( ARG3, sizeof(vki_fd_set) );
+   if (ARG4 != 0)
+      POST_MEM_WRITE( ARG4, sizeof(vki_fd_set) );
 }
 
 PRE(sys_setgid)
@@ -4691,6 +4749,61 @@ POST(sys_sigaltstack)
    vg_assert(SUCCESS);
    if (RES == 0 && ARG2 != 0)
       POST_MEM_WRITE( ARG2, sizeof(vki_stack_t));
+}
+
+PRE(sys_sigprocmask)
+{
+   /* int sigprocmask(int how, const sigset_t *set, sigset_t *oset); */
+   PRINT("sys_sigprocmask ( %ld, %#lx, %#lx )", SARG1, ARG2, ARG3);
+   PRE_REG_READ3(long, "sigprocmask",
+                 int, how, vki_sigset_t *, set, vki_sigset_t *, oset);
+   if (ARG2)
+      PRE_MEM_READ("sigprocmask(set)", ARG2, sizeof(vki_sigset_t));
+   if (ARG3)
+      PRE_MEM_WRITE("sigprocmask(oset)", ARG3, sizeof(vki_sigset_t));
+
+   /* Be safe. */
+   if (ARG2 && !ML_(safe_to_deref((void*)ARG2, sizeof(vki_sigset_t)))) {
+      SET_STATUS_Failure(VKI_EFAULT);
+   }
+   if (ARG3 && !ML_(safe_to_deref((void*)ARG3, sizeof(vki_sigset_t)))) {
+      SET_STATUS_Failure(VKI_EFAULT);
+   }
+
+   if (!FAILURE)
+      SET_STATUS_from_SysRes(
+         VG_(do_sys_sigprocmask)(tid, ARG1 /*how*/, (vki_sigset_t*)ARG2,
+                                 (vki_sigset_t*)ARG3)
+      );
+
+   if (SUCCESS)
+      *flags |= SfPollAfter;
+}
+
+POST(sys_sigprocmask)
+{
+   if (ARG3)
+      POST_MEM_WRITE(ARG3, sizeof(vki_sigset_t));
+}
+
+PRE(sys_sigsuspend)
+{
+   *flags |= SfMayBlock;
+
+   /* int sigsuspend(const sigset_t *set); */
+   PRINT("sys_sigsuspend ( %#lx )", ARG1);
+   PRE_REG_READ1(long, "sigsuspend", vki_sigset_t *, set);
+   PRE_MEM_READ("sigsuspend(set)", ARG1, sizeof(vki_sigset_t));
+
+   /* Be safe. */
+   if (ARG1 && ML_(safe_to_deref((void *) ARG1, sizeof(vki_sigset_t)))) {
+      VG_(sigdelset)((vki_sigset_t *) ARG1, VG_SIGVGKILL);
+      /* We cannot mask VG_SIGVGKILL, as otherwise this thread would not
+         be killable by VG_(nuke_all_threads_except).
+         We thus silently ignore the user request to mask this signal.
+         Note that this is similar to what is done for e.g.
+         sigprocmask (see m_signals.c calculate_SKSS_from_SCSS).  */
+   }
 }
 
 PRE(sys_sethostname)

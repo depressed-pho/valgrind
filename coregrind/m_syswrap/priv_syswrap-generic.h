@@ -168,6 +168,8 @@ DECL_TEMPLATE(generic, sys_setuid);
 DECL_TEMPLATE(generic, sys_gettimeofday);
 DECL_TEMPLATE(generic, sys_madvise);
 DECL_TEMPLATE(generic, sys_sethostname);
+DECL_TEMPLATE(generic, sys_sigprocmask);           // POSIX.1
+DECL_TEMPLATE(generic, sys_sigsuspend);            // POSIX.1
 
 // These ones aren't POSIX, but are in some standard and look reasonably
 // generic,  and are the same for all architectures under Linux.
@@ -179,7 +181,8 @@ DECL_TEMPLATE(generic, sys_chroot);    // SVr4, SVID, 4.4BSD, X/OPEN
 DECL_TEMPLATE(generic, sys_readlink);  // X/OPEN, 4.4BSD
 DECL_TEMPLATE(generic, sys_fchdir);    // SVr4, SVID, POSIX, X/OPEN, 4.4BSD
 DECL_TEMPLATE(generic, sys_getdents);  // SVr4,SVID
-DECL_TEMPLATE(generic, sys_select);    // 4.4BSD
+DECL_TEMPLATE(generic, sys_select);    // 4.4BSD, POSIX.1-2001
+DECL_TEMPLATE(generic, sys_pselect);   // POSIX.1g, POSIX.1-2001
 DECL_TEMPLATE(generic, sys_flock);     // 4.4BSD
 DECL_TEMPLATE(generic, sys_poll);      // XPG4-UNIX
 DECL_TEMPLATE(generic, sys_getrusage); // SVr4, 4.3BSD

@@ -801,7 +801,7 @@ static SyscallTableEntry syscall_table[] = {
 
 // LINXY(__NR__llseek, sys_llseek), /* 64 bit --> lseek */            // 140
    GENXY(__NR_getdents,  sys_getdents),                               // 141
-   GENX_(__NR_select, sys_select),                                    // 142
+   GENXY(__NR_select, sys_select),                                    // 142
    GENX_(__NR_flock,  sys_flock),                                     // 143
    GENX_(__NR_msync,  sys_msync),                                     // 144
 

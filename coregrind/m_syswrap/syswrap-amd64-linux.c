@@ -721,7 +721,7 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_writev,            sys_writev),         // 20 
    GENX_(__NR_access,            sys_access),         // 21 
    LINXY(__NR_pipe,              sys_pipe),           // 22 
-   GENX_(__NR_select,            sys_select),         // 23 
+   GENXY(__NR_select,            sys_select),         // 23 
    LINX_(__NR_sched_yield,       sys_sched_yield),    // 24 
 
    GENX_(__NR_mremap,            sys_mremap),         // 25 

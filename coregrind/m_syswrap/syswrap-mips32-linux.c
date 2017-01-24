@@ -996,7 +996,7 @@ static SyscallTableEntry syscall_main_table[] = {
    LINX_ (__NR_setfsgid,               sys_setfsgid),                // 139
    LINXY (__NR__llseek,                sys_llseek),                  // 140
    GENXY (__NR_getdents,               sys_getdents),                // 141
-   GENX_ (__NR__newselect,             sys_select),                  // 142
+   GENXY (__NR__newselect,             sys_select),                  // 142
    GENX_ (__NR_flock,                  sys_flock),                   // 143
    GENX_ (__NR_msync,                  sys_msync),                   // 144
    GENXY (__NR_readv,                  sys_readv),                   // 145
