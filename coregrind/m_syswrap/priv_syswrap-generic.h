@@ -197,6 +197,7 @@ DECL_TEMPLATE(generic, sys_setregid);     // 4.3BSD
 DECL_TEMPLATE(generic, sys_fchown);       // SVr4,4.3BSD
 DECL_TEMPLATE(generic, sys_setgid);       // SVr4,SVID
 DECL_TEMPLATE(generic, sys_utimes);       // 4.3BSD
+DECL_TEMPLATE(generic, sys_vfork);        // 3.0BSD
 
 // May not be generic for every architecture under Linux.
 DECL_TEMPLATE(generic, sys_sigaction);             // (x86) P

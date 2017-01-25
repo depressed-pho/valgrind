@@ -109,12 +109,12 @@ void ML_(sema_down)( vg_sema_t *sema, Bool as_LL )
    ret = VG_(read)(sema->pipe[0], buf, 1);
    INNER_REQUEST(ANNOTATE_RWLOCK_ACQUIRED(sema, /*is_w*/1));
 
+   if (ret == -VKI_EINTR)
+      goto again;
+
    if (ret != 1) 
       VG_(debugLog)(0, "scheduler", 
                        "VG_(sema_down): read returned %d\n", ret);
-
-   if (ret == -VKI_EINTR)
-      goto again;
 
    vg_assert(ret == 1);		/* should get exactly 1 token */
    vg_assert(buf[0] >= 'A' && buf[0] <= 'Z');

@@ -437,6 +437,7 @@ DECL_TEMPLATE(netbsd, sys_setcontext);
 DECL_TEMPLATE(netbsd, sys_lwp_create);
 DECL_TEMPLATE(netbsd, sys_lwp_exit);
 DECL_TEMPLATE(netbsd, sys_lwp_self);
+DECL_TEMPLATE(netbsd, sys_lwp_wakeup);
 DECL_TEMPLATE(netbsd, sys_lwp_getprivate);
 DECL_TEMPLATE(netbsd, sys_lwp_setprivate);
 DECL_TEMPLATE(netbsd, sys_lwp_kill);
@@ -797,6 +798,13 @@ PRE(sys_lwp_self)
    PRE_REG_READ0(vki_lwpid_t, "_lwp_self");
 }
 
+PRE(sys_lwp_wakeup)
+{
+   /* int _lwp_wakeup(lwpid_t lwp); */
+   PRINT("sys_lwp_wakeup ( %ld )", ARG1);
+   PRE_REG_READ1(int, "_lwp_wakeup", vki_lwpid_t, lwp);
+}
+
 PRE(sys_lwp_getprivate)
 {
    /* void* _lwp_getprivate(void); */
@@ -1039,6 +1047,7 @@ static SyscallTableEntry syscall_table[] = {
    NBDXY(__NR___syscall,            sys___syscall),             /* 198 */
    NBDX_(__NR_ftruncate,            sys_ftruncate),             /* 201 */
    NBDXY(__NR_sysctl,               sys_sysctl),                /* 202 */
+   GENX_(__NR_vfork,                sys_vfork),                 /* 282 */
    GENXY(__NR_sigprocmask,          sys_sigprocmask),           /* 293 */
    GENX_(__NR_sigsuspend,           sys_sigsuspend),            /* 294 */
    NBDX_(__NR_issetugid,            sys_issetugid),             /* 305 */
@@ -1047,6 +1056,7 @@ static SyscallTableEntry syscall_table[] = {
    NBDX_(__NR_lwp_create,           sys_lwp_create),            /* 309 */
    NBDX_(__NR_lwp_exit,             sys_lwp_exit),              /* 310 */
    NBDX_(__NR_lwp_self,             sys_lwp_self),              /* 311 */
+   NBDX_(__NR_lwp_wakeup,           sys_lwp_wakeup),            /* 315 */
    NBDX_(__NR_lwp_getprivate,       sys_lwp_getprivate),        /* 316 */
    NBDX_(__NR_lwp_setprivate,       sys_lwp_setprivate),        /* 317 */
    NBDX_(__NR_lwp_kill,             sys_lwp_kill),              /* 318 */

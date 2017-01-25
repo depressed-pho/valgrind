@@ -3363,16 +3363,11 @@ POST(sys_newfstat)
 #if !defined(VGO_solaris) && !defined(VGP_arm64_linux)
 static vki_sigset_t fork_saved_mask;
 
-// In Linux, the sys_fork() function varies across architectures, but we
-// ignore the various args it gets, and so it looks arch-neutral.  Hmm.
-PRE(sys_fork)
+static vki_pid_t do_fork(ThreadId tid, SyscallStatus* status)
 {
    Bool is_child;
    Int child_pid;
    vki_sigset_t mask;
-
-   PRINT("sys_fork ( )");
-   PRE_REG_READ0(long, "fork");
 
    /* Block all signals during fork, so that we can fix things up in
       the child without being interrupted. */
@@ -3383,7 +3378,7 @@ PRE(sys_fork)
 
    SET_STATUS_from_SysRes( VG_(do_syscall0)(__NR_fork) );
 
-   if (!SUCCESS) return;
+   if (!SUCCESS) return -1;
 
 #if defined(VGO_linux) || defined(VGO_netbsd)
    // RES is 0 for child, non-0 (the child's PID) for parent.
@@ -3414,13 +3409,74 @@ PRE(sys_fork)
             VG_(xml_output_sink).fd = -1;
       }
 
-   } else {
+      return 0;
+   }
+   else {
       VG_(do_atfork_parent)(tid);
-
-      PRINT("   fork: process %d created child %d\n", VG_(getpid)(), child_pid);
 
       /* restore signal mask */
       VG_(sigprocmask)(VKI_SIG_SETMASK, &fork_saved_mask, NULL);
+
+      return child_pid;
+   }
+}
+
+// In Linux, the sys_fork() function varies across architectures, but we
+// ignore the various args it gets, and so it looks arch-neutral.  Hmm.
+PRE(sys_fork)
+{
+   PRINT("sys_fork ( )");
+   PRE_REG_READ0(long, "fork");
+
+   vki_pid_t child_pid = do_fork(tid, status);
+   if (child_pid > 0) {
+      PRINT("   fork: process %d created child %d\n", VG_(getpid)(), child_pid);
+   }
+}
+
+/* We only partially emulate vfork(). Our vfork() is just a fork() so
+ * the child can not make any changes to the parent address space but
+ * we preserve the vfork() behaviour that the parent process is
+ * suspended while the child is using its resources.
+ */
+PRE(sys_vfork)
+{
+   PRINT("sys_vfork ( )");
+   PRE_REG_READ0(long, "vfork");
+
+   vki_pid_t fds[2];
+   Int res;
+   res = VG_(pipe)(fds);
+   vg_assert(res == 0);
+   vg_assert(fds[0] != fds[1]);
+
+   /* Move to Valgrind fds and set close-on-exec flag on both of them (done
+    * by VG_(safe_fd). */
+   fds[0] = VG_(safe_fd)(fds[0]);
+   fds[1] = VG_(safe_fd)(fds[1]);
+   vg_assert(fds[0] != fds[1]);
+
+   vki_pid_t child_pid = do_fork(tid, status);
+   if (child_pid < 0) {
+      VG_(close)(fds[0]);
+      VG_(close)(fds[1]);
+   }
+   else if (child_pid == 0) {
+      VG_(close)(fds[1]);
+   }
+   else {
+      PRINT("   vfork: process %d created child %d\n", VG_(getpid)(), child_pid);
+
+      /* Wait for the child to finish (exec or exit). */
+      VG_(close)(fds[0]);
+
+      UChar w;
+     again:
+      res = VG_(read)(fds[1], &w, 1);
+      if (res == -VKI_EINTR)
+         goto again;
+
+      VG_(close)(fds[1]);
    }
 }
 #endif // !defined(VGO_solaris) && !defined(VGP_arm64_linux)

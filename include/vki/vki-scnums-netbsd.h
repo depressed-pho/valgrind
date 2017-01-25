@@ -79,6 +79,7 @@
 #define __NR_lwp_setprivate     SYS__lwp_setprivate
 #define __NR_lwp_unpark         SYS__lwp_unpark
 #define __NR_lwp_unpark_all     SYS__lwp_unpark_all
+#define __NR_lwp_wakeup         SYS__lwp_wakeup
 #define __NR_mkfifo             SYS_mkfifo
 #define __NR_mknod              SYS___mknod50
 #define __NR_mmap               SYS_mmap
@@ -112,6 +113,7 @@
 #define __NR___syscall          SYS___syscall
 #define __NR_sysctl             SYS___sysctl
 #define __NR_unlink             SYS_unlink
+#define __NR_vfork              SYS___vfork14
 #define __NR_wait4              SYS___wait450
 #define __NR_write              SYS_write
 
