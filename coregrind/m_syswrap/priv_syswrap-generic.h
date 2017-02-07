@@ -170,6 +170,7 @@ DECL_TEMPLATE(generic, sys_madvise);
 DECL_TEMPLATE(generic, sys_sethostname);
 DECL_TEMPLATE(generic, sys_sigprocmask);           // POSIX.1
 DECL_TEMPLATE(generic, sys_sigsuspend);            // POSIX.1
+DECL_TEMPLATE(generic, sys_clock_gettime);         // POSIX.1b
 
 // These ones aren't POSIX, but are in some standard and look reasonably
 // generic,  and are the same for all architectures under Linux.

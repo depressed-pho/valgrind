@@ -366,6 +366,7 @@ union vki_semun {
 #define vki_msghdr        msghdr
 #define vki_sa_family_t   sa_family_t
 #define vki_sockaddr      sockaddr
+#define vki_socklen_t     socklen_t
 
 #include <sys/stat.h>
 #define st_atime_nsec st_atimensec

@@ -1155,6 +1155,62 @@ AM_CONDITIONAL(VGCONF_PLATVARIANT_IS_VANILLA,
 AM_CONDITIONAL(VGCONF_PLATVARIANT_IS_ANDROID,
                test x$VGCONF_PLATVARIANT = xandroid)
 
+#----------------------------------------------------------------------------
+# Checking for system features
+#----------------------------------------------------------------------------
+
+# Check if we have F_GETPATH
+AC_CHECK_DECLS([F_GETPATH], [], [], [#include <fcntl.h>])
+
+# Check if /proc/self/fd/{fd} is a symbolic link to an actual file
+
+AC_MSG_CHECKING([if /proc/self/fd/{fd} is a symbolic link])
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[
+#include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+]], [[
+  int fd;
+  char buf1[PATH_MAX+1], buf2[PATH_MAX+1];
+
+  fd = open("/dev/null", O_RDONLY);
+  sprintf(buf1, "/proc/self/fd/%d", fd);
+  if (readlink(buf1, buf2, sizeof(buf2)) < 0)
+     return -1;
+  return strcmp("/dev/null", buf2);
+]])], [
+  AC_MSG_RESULT([yes])
+  AC_DEFINE([HAVE_SYMLINKS_IN_PROC_SELF_FD], 1, [Define to 1 if your /proc/self/fd/# is a symbolic link])
+], [
+  AC_MSG_RESULT([no])
+])
+
+# Check if /proc/self/path/{fd} is a symbolic link to an actual file
+
+AC_MSG_CHECKING([if /proc/self/path/{fd} is a symbolic link])
+AC_RUN_IFELSE([AC_LANG_PROGRAM([[
+#include <fcntl.h>
+#include <limits.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+]], [[
+  int fd;
+  char buf1[PATH_MAX+1], buf2[PATH_MAX+1];
+
+  fd = open("/dev/null", O_RDONLY);
+  sprintf(buf1, "/proc/self/path/%d", fd);
+  if (readlink(buf1, buf2, sizeof(buf2)) < 0)
+     return -1;
+  return strcmp("/dev/null", buf2);
+]])], [
+  AC_MSG_RESULT([yes])
+  AC_DEFINE([HAVE_SYMLINKS_IN_PROC_SELF_PATH], 1, [Define to 1 if your /proc/self/path/# is a symbolic link])
+], [
+  AC_MSG_RESULT([no])
+])
 
 #----------------------------------------------------------------------------
 # Checking for various library functions and other definitions

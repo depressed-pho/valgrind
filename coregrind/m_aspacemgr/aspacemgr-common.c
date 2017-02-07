@@ -409,7 +409,7 @@ Bool ML_(am_get_fd_d_i_m)( Int fd,
 
 Bool ML_(am_resolve_filename) ( Int fd, /*OUT*/HChar* buf, Int nbuf )
 {
-#if defined(VGO_linux)
+#if defined(HAVE_SYMLINKS_IN_PROC_SELF_FD)
    Int i;
    HChar tmp[64];    // large enough
    for (i = 0; i < nbuf; i++) buf[i] = 0;
@@ -419,7 +419,7 @@ Bool ML_(am_resolve_filename) ( Int fd, /*OUT*/HChar* buf, Int nbuf )
    else
       return False;
 
-#elif defined(VGO_darwin)
+#elif HAVE_DECL_F_GETPATH
    HChar tmp[VKI_MAXPATHLEN+1];
    if (0 == ML_(am_fcntl)(fd, VKI_F_GETPATH, (UWord)tmp)) {
       if (nbuf > 0) {
@@ -430,7 +430,7 @@ Bool ML_(am_resolve_filename) ( Int fd, /*OUT*/HChar* buf, Int nbuf )
    }
    return False;
 
-#elif defined(VGO_solaris)
+#elif defined(HAVE_SYMLINKS_IN_PROC_SELF_PATH)
    Int i;
    HChar tmp[64];
    for (i = 0; i < nbuf; i++) buf[i] = 0;
@@ -440,36 +440,20 @@ Bool ML_(am_resolve_filename) ( Int fd, /*OUT*/HChar* buf, Int nbuf )
    else
       return False;
 
-#elif defined(VGO_netbsd)
+#else
    /* On this platform the only way to resolve a file name is to
-    * lookup it in our recorded fd table. /proc/self/fd/# do exist but
-    * they are (sort of) hard links, not symlinks.
-    *
-    * But even though we know it won't work, trying it anyway would
-    * not hurt. The procfs on NetBSD is supposed to emulate what Linux
-    * does so we hope someday it may have full emulation.
+    * lookup it in our recorded fd table. /proc/self/fd/# might exist
+    * but even if they do they are (sort of) hard links, not symlinks.
     */
-   Int i;
-   HChar tmp[64];    // large enough
-   for (i = 0; i < nbuf; i++) buf[i] = 0;
-   ML_(am_sprintf)(tmp, "/proc/self/fd/%d", fd);
-   if (ML_(am_readlink)(tmp, buf, nbuf) > 0 && buf[0] == '/') {
+   const HChar *rec = VG_(find_fd_recorded_by_fd)(fd);
+   if (rec) {
+      VG_(strncpy)(buf, rec, nbuf);
       return True;
    }
    else {
-       const HChar *rec = VG_(find_fd_recorded_by_fd)(fd);
-       if (rec) {
-           VG_(strncpy)(buf, rec, nbuf);
-           return True;
-       }
-       else {
-           return False;
-       }
+      return False;
    }
-
-#  else
-#     error Unknown OS
-#  endif
+#endif
 }
 
 

@@ -35,6 +35,7 @@
 #include "pub_core_inner.h"
 #include "pub_core_libcassert.h"
 #include "pub_core_libcbase.h"
+#include "pub_core_libcfile.h"
 #include "pub_core_libcprint.h"
 #include "pub_core_libcproc.h"
 #include "pub_core_machine.h"
@@ -425,10 +426,14 @@ void VG_(restore_context)(ThreadId tid, vki_ucontext_t *uc, CorePart part)
 #define POST(name)      DEFN_POST_TEMPLATE(netbsd, name)
 
 /* prototypes */
-DECL_TEMPLATE(netbsd, sys_exit);
-DECL_TEMPLATE(netbsd, sys_ioctl);
-DECL_TEMPLATE(netbsd, sys_mmap);
+DECL_TEMPLATE(netbsd, sys_syscall);
 DECL_TEMPLATE(netbsd, sys___syscall);
+DECL_TEMPLATE(netbsd, sys_exit);
+DECL_TEMPLATE(netbsd, sys_pipe);
+DECL_TEMPLATE(netbsd, sys_ioctl);
+DECL_TEMPLATE(netbsd, sys_connect);
+DECL_TEMPLATE(netbsd, sys_sendto);
+DECL_TEMPLATE(netbsd, sys_mmap);
 DECL_TEMPLATE(netbsd, sys_ftruncate);
 DECL_TEMPLATE(netbsd, sys_sysctl);
 DECL_TEMPLATE(netbsd, sys_issetugid);
@@ -446,9 +451,52 @@ DECL_TEMPLATE(netbsd, sys_lwp_unpark_all);
 DECL_TEMPLATE(netbsd, sys_lwp_ctl);
 DECL_TEMPLATE(netbsd, sys_sched_yield);
 DECL_TEMPLATE(netbsd, sys_sigaction_sigtramp);
+DECL_TEMPLATE(netbsd, sys_socket);
 DECL_TEMPLATE(netbsd, sys_lwp_park);
 
 /* implementation */
+PRE(sys_syscall)
+{
+   /* int
+    * syscall(int number, ...);
+    */
+   *flags |= SfMayBlock;
+
+   /* This is the trickiest. It's a syscall indirection which takes a
+    * syscall number and arguments...
+    */
+   PRINT("sys_syscall ( %#lx, %#lx, %#lx, %#lx, %#lx, %#lx, %#lx, %#lx )",
+         ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8);
+
+   // XXX
+}
+
+POST(sys_syscall)
+{
+   // XXX
+}
+
+PRE(sys___syscall)
+{
+   /* __quad_t
+    * __syscall(quad_t number, ...);
+    */
+   *flags |= SfMayBlock;
+
+   /* This is the trickiest. It's a syscall indirection which takes a
+    * syscall number and arguments...
+    */
+   PRINT("sys___syscall ( %#lx, %#lx, %#lx, %#lx, %#lx, %#lx, %#lx, %#lx )",
+         ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8);
+
+   // XXX
+}
+
+POST(sys___syscall)
+{
+   // XXX
+}
+
 PRE(sys_exit)
 {
    /* void _exit(int status); */
@@ -477,6 +525,31 @@ PRE(sys_exit)
 
    /* We have to claim the syscall already succeeded. */
    SET_STATUS_Success(0);
+}
+
+PRE(sys_pipe)
+{
+   /* {int, int} pipe(); */
+   PRINT("sys_pipe ( )");
+   PRE_REG_READ0(int, "pipe");
+}
+
+POST(sys_pipe)
+{
+   if (!ML_(fd_allowed)(RES  , "pipe", tid, True) ||
+       !ML_(fd_allowed)(RESHI, "pipe", tid, True)) {
+      VG_(close)(RES);
+      VG_(close)(RESHI);
+      SET_STATUS_Failure(VKI_EMFILE);
+   }
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
+   else if (VG_(clo_track_fds)) {
+#else
+   else {
+#endif
+      ML_(record_fd_open_nameless)(tid, RES);
+      ML_(record_fd_open_nameless)(tid, RESHI);
+   }
 }
 
 PRE(sys_ioctl)
@@ -529,6 +602,33 @@ POST(sys_ioctl)
    }
 }
 
+PRE(sys_connect)
+{
+   /* int
+    * connect(int s, const struct sockaddr *name, socklen_t namelen);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_connect ( %ld, %#lx, %lu )", SARG1, ARG2, ARG3);
+   PRE_REG_READ3(int, "connect", int, s, const struct vki_sockaddr *, name,
+                 vki_socklen_t, namelen);
+   ML_(generic_PRE_sys_connect)(tid, ARG1, ARG2, ARG3);
+}
+
+PRE(sys_sendto)
+{
+   /* ssize_t
+    * sendto(int s, const void *msg, size_t len, int flags,
+    *     const struct sockaddr *to, socklen_t tolen);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_sendto ( %ld, %#lx, %lu, %ld, %#lx, %lu )",
+         SARG1, ARG2, ARG3, SARG4, ARG5, ARG6);
+   PRE_REG_READ6(vki_ssize_t, "sendto", int, s, const void *, msg,
+                 vki_size_t, len, int, flags, const struct vki_sockaddr *, to,
+                 vki_socklen_t, tolen);
+   ML_(generic_PRE_sys_sendto)(tid, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6);
+}
+
 PRE(sys_mmap)
 {
    /* void *
@@ -563,26 +663,6 @@ PRE(sys_mmap)
       r = ML_(generic_PRE_sys_mmap)(tid, ARG1, ARG2, ARG3, ARG4, ARG5, offset);
    }
    SET_STATUS_from_SysRes(r);
-}
-
-PRE(sys___syscall)
-{
-   /* __quad_t
-    * __syscall(quad_t number, ...);
-    */
-
-   /* This is the trickiest. It's a syscall indirection which takes a
-    * syscall number and arguments...
-    */
-   PRINT("sys___syscall ( %#lx, %#lx, %#lx, %#lx, %#lx, %#lx, %#lx, %#lx )",
-         ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8);
-
-   // XXX
-}
-
-POST(sys___syscall)
-{
-   // XXX
 }
 
 PRE(sys_ftruncate)
@@ -665,7 +745,14 @@ PRE(sys_setcontext)
    }
 
    VG_(restore_context)(tid, (vki_ucontext_t *)ARG1, Vg_CoreSysCall);
+
+   /* Tell the driver not to update the guest state with the "result",
+    * and set a bogus result to keep it happy. */
+   *flags |= SfNoWriteResult;
    SET_STATUS_Success(0);
+
+   /* Check to see if any signals arose as a result of this. */
+   *flags |= SfPollAfter;
 }
 
 PRE(sys_lwp_create)
@@ -984,6 +1071,21 @@ POST(sys_sigaction_sigtramp)
       POST_MEM_WRITE(ARG3, sizeof(vki_sigaction_fromK_t));
 }
 
+PRE(sys_socket)
+{
+   /* int
+    * socket(int domain, int type, int protocol);
+    */
+   PRINT("sys_socket ( %ld, %ld, %ld )", SARG1, SARG2, SARG3);
+   PRE_REG_READ3(int, "socket", int, domain, int, type, int, protocol);
+}
+
+POST(sys_socket)
+{
+   SysRes r = ML_(generic_POST_sys_socket)(tid, VG_(mk_SysRes_Success)(RES));
+   SET_STATUS_from_SysRes(r);
+}
+
 PRE(sys_lwp_park)
 {
    /* int
@@ -1028,6 +1130,7 @@ PRE(sys_lwp_park)
  */
 
 static SyscallTableEntry syscall_table[] = {
+   NBDXY(__NR_syscall,              sys_syscall),               /*   0 */
    NBDX_(__NR_exit,                 sys_exit),                  /*   1 */
    GENX_(__NR_fork,                 sys_fork),                  /*   2 */
    GENXY(__NR_read,                 sys_read),                  /*   3 */
@@ -1036,11 +1139,15 @@ static SyscallTableEntry syscall_table[] = {
    GENXY(__NR_close,                sys_close),                 /*   6 */
    GENX_(__NR_unlink,               sys_unlink),                /*  10 */
    GENX_(__NR_getpid,               sys_getpid),                /*  20 */
+   GENX_(__NR_access,               sys_access),                /*  33 */
    GENX_(__NR_kill,                 sys_kill),                  /*  37 */
+   NBDXY(__NR_pipe,                 sys_pipe),                  /*  42 */
    NBDXY(__NR_ioctl,                sys_ioctl),                 /*  54 */
    GENX_(__NR_readlink,             sys_readlink),              /*  58 */
    GENXY(__NR_munmap,               sys_munmap),                /*  73 */
    GENXY(__NR_mprotect,             sys_mprotect),              /*  74 */
+   NBDX_(__NR_connect,              sys_connect),               /*  98 */
+   NBDX_(__NR_sendto,               sys_sendto),                /* 133 */
    GENXY(__NR_getrlimit,            sys_getrlimit),             /* 194 */
    NBDX_(__NR_mmap,                 sys_mmap),                  /* 197 */
    GENXY(__NR_select,               sys_select),                /* 417 */
@@ -1065,7 +1172,10 @@ static SyscallTableEntry syscall_table[] = {
    NBDXY(__NR_lwp_ctl,              sys_lwp_ctl),               /* 325 */
    NBDXY(__NR_sigaction_sigtramp,   sys_sigaction_sigtramp),    /* 340 */
    NBDX_(__NR_sched_yield,          sys_sched_yield),           /* 350 */
+   NBDXY(__NR_socket,               sys_socket),                /* 394 */
+   GENXY(__NR_gettimeofday,         sys_gettimeofday),          /* 418 */
    GENXY(__NR_setitimer,            sys_setitimer),             /* 425 */
+   GENXY(__NR_clock_gettime,        sys_clock_gettime),         /* 427 */
    GENXY(__NR_nanosleep,            sys_nanosleep),             /* 430 */
    GENXY(__NR_fstat,                sys_newfstat),              /* 440 */
    GENXY(__NR_pselect,              sys_pselect),               /* 436 */

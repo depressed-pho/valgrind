@@ -99,6 +99,7 @@
 #define __NR_sched_yield        SYS_sched_yield
 #define __NR_select             SYS___select50
 #define __NR_semctl             SYS_____semctl50
+#define __NR_sendto             SYS_sendto
 #define __NR_setcontext         SYS_setcontext
 #define __NR_setitimer          SYS___setitimer50
 #define __NR_setrlimit          SYS_setrlimit
@@ -110,6 +111,7 @@
 #define __NR_sigtimedwait       SYS_____sigtimedwait50
 #define __NR_socket             SYS___socket30
 #define __NR_stat               SYS___stat50
+#define __NR_syscall            SYS_syscall
 #define __NR___syscall          SYS___syscall
 #define __NR_sysctl             SYS___sysctl
 #define __NR_unlink             SYS_unlink

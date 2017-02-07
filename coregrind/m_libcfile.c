@@ -41,6 +41,7 @@
 #include "pub_core_clientstate.h"   // VG_(fd_hard_limit)
 #include "pub_core_mallocfree.h"    // VG_(realloc)
 #include "pub_core_syscall.h"
+#include "pub_core_syswrap.h"       // VG_(find_fd_recorded_by_fd)
 
 /* IMPORTANT: on Darwin it is essential to use the _nocancel versions
    of syscalls rather than the vanilla version, if a _nocancel version
@@ -78,7 +79,8 @@ Int VG_(safe_fd)(Int oldfd)
    cannot be deduced. */
 Bool VG_(resolve_filename) ( Int fd, const HChar** result )
 {
-#  if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
+#  if defined(HAVE_SYMLINKS_IN_PROC_SELF_FD) \
+   || defined(HAVE_SYMLINKS_IN_PROC_SELF_PATH)
    static HChar *buf = NULL;
    static SizeT  bufsiz = 0;
 
@@ -89,9 +91,9 @@ Bool VG_(resolve_filename) ( Int fd, const HChar** result )
 
    HChar tmp[64];   // large enough
    {
-#     if defined(VGO_linux)
+#     if defined(HAVE_SYMLINKS_IN_PROC_SELF_FD)
       VG_(sprintf)(tmp, "/proc/self/fd/%d", fd);
-#     elif defined(VGO_solaris)
+#     elif defined(HAVE_SYMLINKS_IN_PROC_SELF_PATH)
       VG_(sprintf)(tmp, "/proc/self/path/%d", fd);
 #     endif
    }
@@ -115,7 +117,7 @@ Bool VG_(resolve_filename) ( Int fd, const HChar** result )
    *result = NULL;
    return False;
 
-#  elif defined(VGO_darwin)
+#  elif HAVE_DECL_F_GETPATH
    HChar tmp[VKI_MAXPATHLEN+1];
    if (0 == VG_(fcntl)(fd, VKI_F_GETPATH, (UWord)tmp)) {
       static HChar *buf = NULL;
@@ -132,7 +134,20 @@ Bool VG_(resolve_filename) ( Int fd, const HChar** result )
    return False;
 
 #  else
-#     error Unknown OS
+   /* On this platform the only way to resolve a file name is to
+    * lookup it in our recorded fd table. /proc/self/fd/# might exist
+    * but even if they do they are (sort of) hard links, not symlinks.
+    */
+   const HChar *rec = VG_(find_fd_recorded_by_fd)(fd);
+   if (rec) {
+      *result = VG_(strdup)("resolve_filename", rec);
+      return True;
+   }
+   else {
+      *result = NULL;
+      return False;
+   }
+
 #  endif
 }
 

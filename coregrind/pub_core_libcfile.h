@@ -44,6 +44,10 @@ extern Int VG_(safe_fd) ( Int oldfd );
 extern Int VG_(fcntl)   ( Int fd, Int cmd, Addr arg );
 
 /* Convert an fd into a filename */
+#if HAVE_DECL_F_GETPATH || defined(HAVE_SYMLINKS_IN_PROC_SELF_FD) \
+    || defined(HAVE_SYMLINKS_IN_PROC_SELF_PATH)
+#define OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD
+#endif
 extern Bool VG_(resolve_filename) ( Int fd, const HChar** buf );
 
 /* Return the size of a file, or -1 in case of error */

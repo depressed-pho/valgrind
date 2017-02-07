@@ -1004,7 +1004,7 @@ void VG_(init_preopened_fds)(void)
             Int fno = VG_(strtoll10)(d->d_name, &s);
             if (*s == '\0') {
                if (fno != sr_Res(f))
-                  //if (VG_(clo_track_fds))
+                  if (VG_(clo_track_fds))
                      ML_(record_fd_open_named)(-1, fno);
             } else {
                VG_(message)(Vg_DebugMsg,
@@ -1151,7 +1151,7 @@ static void check_cmsg_for_fds(ThreadId tid, struct vki_msghdr *msg)
          Int i;
 
          for (i = 0; i < fdc; i++)
-#if !defined(VGO_netbsd)
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
             if(VG_(clo_track_fds))
 #endif
                // XXX: must we check the range on these fds with
@@ -1517,14 +1517,14 @@ ML_(generic_POST_sys_socketpair) ( ThreadId tid,
       r = VG_(mk_SysRes_Error)( VKI_EMFILE );
    } else {
       POST_MEM_WRITE( arg3, 2*sizeof(int) );
-#if !defined(VGO_netbsd)
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
       if (VG_(clo_track_fds)) {
+#else
+      if (1) {
 #endif
          ML_(record_fd_open_nameless)(tid, fd1);
          ML_(record_fd_open_nameless)(tid, fd2);
-#if !defined(VGO_netbsd)
       }
-#endif
    }
    return r;
 }
@@ -1540,7 +1540,7 @@ ML_(generic_POST_sys_socket) ( ThreadId tid, SysRes res )
       VG_(close)(sr_Res(res));
       r = VG_(mk_SysRes_Error)( VKI_EMFILE );
    } else {
-#if !defined(VGO_netbsd)
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
       if (VG_(clo_track_fds))
 #endif
          ML_(record_fd_open_nameless)(tid, sr_Res(res));
@@ -1593,7 +1593,7 @@ ML_(generic_POST_sys_accept) ( ThreadId tid,
       if (addr_p != (Addr)NULL) 
          ML_(buf_and_len_post_check) ( tid, res, addr_p, addrlen_p,
                                        "socketcall.accept(addrlen_out)" );
-#if !defined(VGO_netbsd)
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
       if (VG_(clo_track_fds))
 #endif
           ML_(record_fd_open_nameless)(tid, sr_Res(res));
@@ -3282,7 +3282,7 @@ PRE(sys_close)
 
 POST(sys_close)
 {
-#if !defined(VGO_netbsd)
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
    if (VG_(clo_track_fds))
 #endif
       ML_(record_fd_close)(ARG1);
@@ -3301,7 +3301,7 @@ POST(sys_dup)
       VG_(close)(RES);
       SET_STATUS_Failure( VKI_EMFILE );
    } else {
-#if !defined(VGO_netbsd)
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
       if (VG_(clo_track_fds))
 #endif
          ML_(record_fd_open_named)(tid, RES);
@@ -3319,7 +3319,7 @@ PRE(sys_dup2)
 POST(sys_dup2)
 {
    vg_assert(SUCCESS);
-#if !defined(VGO_netbsd)
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
    if (VG_(clo_track_fds))
 #endif
       ML_(record_fd_open_named)(tid, RES);
@@ -4162,11 +4162,10 @@ POST(sys_open)
       VG_(close)(RES);
       SET_STATUS_Failure( VKI_EMFILE );
    } else {
-#if !defined(VGO_netbsd)
-      /* Always track them on NetBSD because doing so is the only way
-       * to resolve file name from fd on this platform. This means if
-       * you disable it V will load no debug info and thus you won't
-       * get any symbol names nor redirections. */
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
+      /* Always track them on platforms like NetBSD which doesn't
+       * support resolving filename from fd. It's the only way to
+       * resolve them on those platforms. */
       if (VG_(clo_track_fds))
 #endif
          ML_(record_fd_open_with_given_name)(tid, RES, (HChar*)ARG1);
@@ -4231,7 +4230,7 @@ POST(sys_creat)
       VG_(close)(RES);
       SET_STATUS_Failure( VKI_EMFILE );
    } else {
-#if !defined(VGO_netbsd)
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
       if (VG_(clo_track_fds))
 #endif
          ML_(record_fd_open_with_given_name)(tid, RES, (HChar*)ARG1);
@@ -4860,6 +4859,21 @@ PRE(sys_sigsuspend)
          Note that this is similar to what is done for e.g.
          sigprocmask (see m_signals.c calculate_SKSS_from_SCSS).  */
    }
+}
+
+PRE(sys_clock_gettime)
+{
+   /* int
+    * clock_gettime(clockid_t clock_id, struct timespec *tp);
+    */
+   PRINT("sys_clock_gettime ( %ld, %#lx )", SARG1, ARG2);
+   PRE_REG_READ2(int, "clock_gettime", vki_clockid_t, clock_id, struct vki_timespec *, tp);
+   PRE_MEM_WRITE("clock_gettime(tp)", ARG2, sizeof(struct vki_timespec));
+}
+
+POST(sys_clock_gettime)
+{
+   POST_MEM_WRITE(ARG2, sizeof(struct vki_timespec));
 }
 
 PRE(sys_sethostname)

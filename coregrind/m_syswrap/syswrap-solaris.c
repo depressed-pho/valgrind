@@ -1032,7 +1032,6 @@ DECL_TEMPLATE(solaris, sys_acl);
 DECL_TEMPLATE(solaris, sys_auditsys);
 DECL_TEMPLATE(solaris, sys_p_online);
 DECL_TEMPLATE(solaris, sys_sigqueue);
-DECL_TEMPLATE(solaris, sys_clock_gettime);
 DECL_TEMPLATE(solaris, sys_clock_settime);
 DECL_TEMPLATE(solaris, sys_clock_getres);
 DECL_TEMPLATE(solaris, sys_timer_create);
@@ -8299,20 +8298,6 @@ PRE(sys_sigqueue)
    *flags |= SfPollAfter;
 }
 
-PRE(sys_clock_gettime)
-{
-   /* int clock_gettime(clockid_t clock_id, struct timespec *tp); */
-   PRINT("sys_clock_gettime ( %ld, %#lx )", SARG1, ARG2);
-   PRE_REG_READ2(long, "clock_gettime", vki_clockid_t, clock_id,
-                 struct timespec *, tp);
-   PRE_MEM_WRITE("clock_gettime(tp)", ARG2, sizeof(struct vki_timespec));
-}
-
-POST(sys_clock_gettime)
-{
-   POST_MEM_WRITE(ARG2, sizeof(struct vki_timespec));
-}
-
 PRE(sys_clock_settime)
 {
    /* int clock_settime(clockid_t clock_id, const struct timespec *tp); */
@@ -10827,7 +10812,7 @@ static SyscallTableEntry syscall_table[] = {
    SOLXY(__NR_auditsys,             sys_auditsys),              /* 186 */
    SOLX_(__NR_p_online,             sys_p_online),              /* 189 */
    SOLX_(__NR_sigqueue,             sys_sigqueue),              /* 190 */
-   SOLX_(__NR_clock_gettime,        sys_clock_gettime),         /* 191 */
+   GENXY(__NR_clock_gettime,        sys_clock_gettime),         /* 191 */
    SOLX_(__NR_clock_settime,        sys_clock_settime),         /* 192 */
    SOLXY(__NR_clock_getres,         sys_clock_getres),          /* 193 */
    SOLXY(__NR_timer_create,         sys_timer_create),          /* 194 */
