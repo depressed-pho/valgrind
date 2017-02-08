@@ -284,19 +284,31 @@ typedef struct sigaction vki_sigaction_fromK_t;
 #define vki_ps_strings ps_strings
 
 #include <sys/fcntl.h>
-#define VKI_F_DUPFD    F_DUPFD
-#define VKI_F_GETFL    F_GETFL
-#define VKI_F_SETFD    F_SETFD
-#define VKI_F_SETFL    F_SETFL
-#define VKI_FD_CLOEXEC FD_CLOEXEC
-#define VKI_O_APPEND   O_APPEND
-#define VKI_O_CREAT    O_CREAT
-#define VKI_O_EXCL     O_EXCL
-#define VKI_O_NONBLOCK O_NONBLOCK
-#define VKI_O_RDONLY   O_RDONLY
-#define VKI_O_RDWR     O_RDWR
-#define VKI_O_TRUNC    O_TRUNC
-#define VKI_O_WRONLY   O_WRONLY
+#define VKI_F_CLOSEM        F_CLOSEM
+#define VKI_F_DUPFD         F_DUPFD
+#define VKI_F_DUPFD_CLOEXEC F_DUPFD_CLOEXEC
+#define VKI_F_GETFD         F_GETFD
+#define VKI_F_GETFL         F_GETFL
+#define VKI_F_GETLK         F_GETLK
+#define VKI_F_GETNOSIGPIPE  F_GETNOSIGPIPE
+#define VKI_F_GETOWN        F_GETOWN
+#define VKI_F_MAXFD         F_MAXFD
+#define VKI_F_SETFD         F_SETFD
+#define VKI_F_SETFL         F_SETFL
+#define VKI_F_SETLK         F_SETLK
+#define VKI_F_SETLKW        F_SETLKW
+#define VKI_F_SETNOSIGPIPE  F_SETNOSIGPIPE
+#define VKI_F_SETOWN        F_SETOWN
+#define VKI_FD_CLOEXEC      FD_CLOEXEC
+#define VKI_O_APPEND        O_APPEND
+#define VKI_O_CREAT         O_CREAT
+#define VKI_O_EXCL          O_EXCL
+#define VKI_O_NONBLOCK      O_NONBLOCK
+#define VKI_O_RDONLY        O_RDONLY
+#define VKI_O_RDWR          O_RDWR
+#define VKI_O_TRUNC         O_TRUNC
+#define VKI_O_WRONLY        O_WRONLY
+#define vki_flock           flock
 
 #include <sys/ioccom.h>
 #define _VKI_IOC_DIR(x)  ((x) & IOC_DIRMASK)

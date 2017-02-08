@@ -89,6 +89,7 @@
 #define __NR_nanosleep          SYS___nanosleep50
 #define __NR_open               SYS_open
 #define __NR_pipe               SYS_pipe
+#define __NR_pipe2              SYS_pipe2
 #define __NR_poll               SYS_poll
 #define __NR_pread              SYS_pread
 #define __NR_pselect            SYS___pselect50

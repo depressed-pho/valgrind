@@ -430,7 +430,9 @@ DECL_TEMPLATE(netbsd, sys_syscall);
 DECL_TEMPLATE(netbsd, sys___syscall);
 DECL_TEMPLATE(netbsd, sys_exit);
 DECL_TEMPLATE(netbsd, sys_pipe);
+DECL_TEMPLATE(netbsd, sys_pipe2);
 DECL_TEMPLATE(netbsd, sys_ioctl);
+DECL_TEMPLATE(netbsd, sys_fcntl);
 DECL_TEMPLATE(netbsd, sys_connect);
 DECL_TEMPLATE(netbsd, sys_sendto);
 DECL_TEMPLATE(netbsd, sys_mmap);
@@ -543,12 +545,43 @@ POST(sys_pipe)
       SET_STATUS_Failure(VKI_EMFILE);
    }
 #if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
-   else if (VG_(clo_track_fds)) {
+   else if (VG_(clo_track_fds))
 #else
-   else {
+   else
 #endif
+   {
       ML_(record_fd_open_nameless)(tid, RES);
       ML_(record_fd_open_nameless)(tid, RESHI);
+   }
+}
+
+PRE(sys_pipe2)
+{
+   /* int pipe2(int fildes[2], int flags); */
+   PRINT("sys_pipe2 ( %#lx, %ld )", ARG1, SARG2);
+   PRE_REG_READ2(int, "pipe2", int *, fildes, int, flags);
+   PRE_MEM_WRITE("pipe2(fildes)", ARG1, 2 * sizeof(int));
+}
+
+POST(sys_pipe2)
+{
+   POST_MEM_WRITE(ARG1, 2 * sizeof(int));
+
+   int *fildes = (int*)ARG1;
+   if (!ML_(fd_allowed)(fildes[0], "pipe2", tid, True) ||
+       !ML_(fd_allowed)(fildes[1], "pipe2", tid, True)) {
+      VG_(close)(fildes[0]);
+      VG_(close)(fildes[1]);
+      SET_STATUS_Failure(VKI_EMFILE);
+   }
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
+   else if (VG_(clo_track_fds))
+#else
+   else
+#endif
+   {
+      ML_(record_fd_open_nameless)(tid, fildes[0]);
+      ML_(record_fd_open_nameless)(tid, fildes[1]);
    }
 }
 
@@ -598,6 +631,99 @@ POST(sys_ioctl)
 
    default:
       ML_(POST_unknown_ioctl)(tid, RES, ARG2, ARG3);
+      break;
+   }
+}
+
+static void pre_mem_read_flock(ThreadId tid, struct vki_flock *arg)
+{
+   PRE_FIELD_READ("fcntl(arg->l_start)" , arg->l_start);
+   PRE_FIELD_READ("fcntl(arg->l_len)"   , arg->l_len);
+   PRE_FIELD_READ("fcntl(arg->l_type)"  , arg->l_type);
+   PRE_FIELD_READ("fcntl(arg->l_whence)", arg->l_whence);
+}
+
+PRE(sys_fcntl)
+{
+   /* int fcntl(int fd, int cmd, ...); */
+   switch (ARG2) {
+      /* These ones ignore ARG3. */
+   case VKI_F_GETFD:
+   case VKI_F_GETFL:
+   case VKI_F_GETOWN:
+   case VKI_F_CLOSEM:
+   case VKI_F_MAXFD:
+   case VKI_F_GETNOSIGPIPE:
+      PRINT("sys_fcntl ( %ld, %ld )", SARG1, SARG2);
+      PRE_REG_READ2(int, "fcntl", int, fd, int, cmd);
+      break;
+
+      /* These ones use ARG3 as int. */
+   case VKI_F_DUPFD:
+   case VKI_F_DUPFD_CLOEXEC:
+   case VKI_F_SETFD:
+   case VKI_F_SETFL:
+   case VKI_F_SETOWN:
+   case VKI_F_SETNOSIGPIPE:
+      PRINT("sys_fcntl ( %ld, %ld, %ld )", SARG1, SARG2, SARG3);
+      PRE_REG_READ3(int, "fcntl", int, fd, int, cmd, int, arg);
+      /* Check if a client program isn't going to poison any of V's
+       * output fds. */
+      if ((ARG2 == VKI_F_DUPFD ||
+           ARG2 == VKI_F_DUPFD_CLOEXEC) &&
+          !ML_(fd_allowed)(ARG3, "fcntl(F_DUPFD)", tid, False)) {
+         SET_STATUS_Failure(VKI_EBADF);
+         return;
+      }
+      break;
+
+      /* These ones use ARG3 as struct flock (input only). */
+   case VKI_F_SETLK:
+   case VKI_F_SETLKW:
+      PRINT("sys_fcntl ( %ld, %ld, %#lx )", SARG1, SARG2, ARG3);
+      PRE_REG_READ3(int, "fcntl", int, fd, int, cmd, struct flock *, arg);
+      pre_mem_read_flock(tid, (struct vki_flock *)ARG3);
+      break;
+
+      /* These ones use ARG3 as struct flock (input & output). */
+   case VKI_F_GETLK:
+      PRINT("sys_fcntl ( %ld, %ld, %#lx )", SARG1, SARG2, ARG3);
+      PRE_REG_READ3(int, "fcntl", int, fd, int, cmd, struct flock *, arg);
+      pre_mem_read_flock(tid, (struct vki_flock *)ARG3);
+      PRE_MEM_WRITE("fcntl(arg)", ARG3, sizeof(struct vki_flock));
+      break;
+
+   default:
+      VG_(unimplemented)("Syswrap of the fcntl call with cmd %ld.", SARG2);
+   }
+
+   if (ARG2 == VKI_F_SETLKW) {
+      *flags |= SfMayBlock;
+   }
+
+   /* We of course don't want our own fds to be messed around. */
+   if (!ML_(fd_allowed)(ARG1, "fcntl", tid, False))
+      SET_STATUS_Failure(VKI_EBADF);
+}
+
+POST(sys_fcntl)
+{
+   switch (ARG2 /* cmd */) {
+      /* These ones create a new fd. */
+   case VKI_F_DUPFD:
+   case VKI_F_DUPFD_CLOEXEC:
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
+      if (VG_(clo_track_fds))
+#endif
+         ML_(record_fd_open_named)(tid, RES);
+      break;
+
+      /* These ones use ARG3 as struct flock (input & output). */
+   case VKI_F_GETLK:
+      POST_MEM_WRITE(ARG3, sizeof(struct vki_flock));
+      break;
+
+   default:
       break;
    }
 }
@@ -1146,6 +1272,8 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_readlink,             sys_readlink),              /*  58 */
    GENXY(__NR_munmap,               sys_munmap),                /*  73 */
    GENXY(__NR_mprotect,             sys_mprotect),              /*  74 */
+   GENXY(__NR_dup2,                 sys_dup2),                  /*  90 */
+   NBDXY(__NR_fcntl,                sys_fcntl),                 /*  92 */
    NBDX_(__NR_connect,              sys_connect),               /*  98 */
    NBDX_(__NR_sendto,               sys_sendto),                /* 133 */
    GENXY(__NR_getrlimit,            sys_getrlimit),             /* 194 */
@@ -1180,6 +1308,7 @@ static SyscallTableEntry syscall_table[] = {
    GENXY(__NR_fstat,                sys_newfstat),              /* 440 */
    GENXY(__NR_pselect,              sys_pselect),               /* 436 */
    GENXY(__NR_wait4,                sys_wait4),                 /* 449 */
+   NBDXY(__NR_pipe2,                sys_pipe2),                 /* 453 */
    NBDX_(__NR_lwp_park,             sys_lwp_park)               /* 478 */
 };
 
