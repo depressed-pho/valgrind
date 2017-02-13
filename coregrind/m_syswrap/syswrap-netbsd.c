@@ -436,6 +436,7 @@ DECL_TEMPLATE(netbsd, sys_fcntl);
 DECL_TEMPLATE(netbsd, sys_connect);
 DECL_TEMPLATE(netbsd, sys_sendto);
 DECL_TEMPLATE(netbsd, sys_mmap);
+DECL_TEMPLATE(netbsd, sys_lseek);
 DECL_TEMPLATE(netbsd, sys_ftruncate);
 DECL_TEMPLATE(netbsd, sys_sysctl);
 DECL_TEMPLATE(netbsd, sys_issetugid);
@@ -791,11 +792,18 @@ PRE(sys_mmap)
    SET_STATUS_from_SysRes(r);
 }
 
+PRE(sys_lseek)
+{
+   /* off_t lseek(int fildes, off_t offset, int whence); */
+   PRINT("sys_lseek ( %ld, %ld, %ld, %ld )", SARG1, SARG2, SARG3, SARG4);
+   PRE_REG_READ4(vki_off_t, "lseek", int, fildes, int, pad, vki_off_t, offset, int, whence);
+}
+
 PRE(sys_ftruncate)
 {
    /* int ftruncate(int fd, off_t length); */
    *flags |= SfMayBlock;
-   PRINT("sys_ftruncate ( %lu, %lu, %lu )", ARG1, ARG2, ARG3);
+   PRINT("sys_ftruncate ( %ld, %ld, %ld )", SARG1, SARG2, SARG3);
    PRE_REG_READ3(int, "ftruncate", int, fd, int, pad, vki_off_t, length);
 }
 
@@ -1278,8 +1286,8 @@ static SyscallTableEntry syscall_table[] = {
    NBDX_(__NR_sendto,               sys_sendto),                /* 133 */
    GENXY(__NR_getrlimit,            sys_getrlimit),             /* 194 */
    NBDX_(__NR_mmap,                 sys_mmap),                  /* 197 */
-   GENXY(__NR_select,               sys_select),                /* 417 */
    NBDXY(__NR___syscall,            sys___syscall),             /* 198 */
+   NBDX_(__NR_lseek,                sys_lseek),                 /* 199 */
    NBDX_(__NR_ftruncate,            sys_ftruncate),             /* 201 */
    NBDXY(__NR_sysctl,               sys_sysctl),                /* 202 */
    GENX_(__NR_vfork,                sys_vfork),                 /* 282 */
@@ -1301,10 +1309,12 @@ static SyscallTableEntry syscall_table[] = {
    NBDXY(__NR_sigaction_sigtramp,   sys_sigaction_sigtramp),    /* 340 */
    NBDX_(__NR_sched_yield,          sys_sched_yield),           /* 350 */
    NBDXY(__NR_socket,               sys_socket),                /* 394 */
+   GENXY(__NR_select,               sys_select),                /* 417 */
    GENXY(__NR_gettimeofday,         sys_gettimeofday),          /* 418 */
    GENXY(__NR_setitimer,            sys_setitimer),             /* 425 */
    GENXY(__NR_clock_gettime,        sys_clock_gettime),         /* 427 */
    GENXY(__NR_nanosleep,            sys_nanosleep),             /* 430 */
+   GENXY(__NR_sigtimedwait,         sys_sigtimedwait),          /* 431 */
    GENXY(__NR_fstat,                sys_newfstat),              /* 440 */
    GENXY(__NR_pselect,              sys_pselect),               /* 436 */
    GENXY(__NR_wait4,                sys_wait4),                 /* 449 */

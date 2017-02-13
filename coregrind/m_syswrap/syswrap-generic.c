@@ -4861,6 +4861,25 @@ PRE(sys_sigsuspend)
    }
 }
 
+PRE(sys_sigtimedwait)
+{
+   /* int sigtimedwait(const sigset_t *set, siginfo_t *info,
+                       const struct timespec *timeout); */
+   *flags |= SfMayBlock;
+   PRINT("sys_sigtimedwait ( %#lx, %#lx, %#lx )", ARG1, ARG2, ARG3);
+   PRE_REG_READ3(long, "sigtimedwait", vki_sigset_t *, set,
+                 vki_siginfo_t *, info, struct vki_timespec *, timeout);
+   PRE_MEM_READ("sigtimewait(set)", ARG1, sizeof(vki_sigset_t));
+   PRE_MEM_WRITE("sigtimedwait(info)", ARG2, sizeof(vki_siginfo_t));
+   if (ARG3)
+      PRE_MEM_READ("sigtimedwait(timeout)", ARG3, sizeof(struct vki_timespec));
+}
+
+POST(sys_sigtimedwait)
+{
+   POST_MEM_WRITE(ARG2, sizeof(vki_siginfo_t));
+}
+
 PRE(sys_clock_gettime)
 {
    /* int
