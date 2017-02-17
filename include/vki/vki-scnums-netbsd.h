@@ -84,6 +84,16 @@
 #define __NR_mknod              SYS___mknod50
 #define __NR_mmap               SYS_mmap
 #define __NR_mprotect           SYS_mprotect
+#define __NR_mq_close           SYS_mq_close
+#define __NR_mq_getattr         SYS_mq_getattr
+#define __NR_mq_notify          SYS_mq_notify
+#define __NR_mq_receive         SYS_mq_receive
+#define __NR_mq_send            SYS_mq_send
+#define __NR_mq_setattr         SYS_mq_setattr
+#define __NR_mq_timedreceive    SYS___mq_timedreceive50
+#define __NR_mq_timedsend       SYS___mq_timedsend50
+#define __NR_mq_unlink          SYS_mq_unlink
+#define __NR_mq_open            SYS_mq_open
 #define __NR_mremap             SYS_mremap
 #define __NR_munmap             SYS_munmap
 #define __NR_nanosleep          SYS___nanosleep50

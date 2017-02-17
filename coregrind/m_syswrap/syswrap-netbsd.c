@@ -1290,6 +1290,14 @@ static SyscallTableEntry syscall_table[] = {
    NBDX_(__NR_lseek,                sys_lseek),                 /* 199 */
    NBDX_(__NR_ftruncate,            sys_ftruncate),             /* 201 */
    NBDXY(__NR_sysctl,               sys_sysctl),                /* 202 */
+   GENXY(__NR_mq_open,              sys_mq_open),               /* 257 */
+   GENXY(__NR_mq_close,             sys_mq_close),              /* 258 */
+   GENX_(__NR_mq_unlink,            sys_mq_unlink),             /* 259 */
+   GENXY(__NR_mq_getattr,           sys_mq_getattr),            /* 260 */
+   GENXY(__NR_mq_setattr,           sys_mq_setattr),            /* 261 */
+   GENX_(__NR_mq_notify,            sys_mq_notify),             /* 262 */
+   GENX_(__NR_mq_send,              sys_mq_send),               /* 263 */
+   GENXY(__NR_mq_receive,           sys_mq_receive),            /* 264 */
    GENX_(__NR_vfork,                sys_vfork),                 /* 282 */
    GENXY(__NR_sigprocmask,          sys_sigprocmask),           /* 293 */
    GENX_(__NR_sigsuspend,           sys_sigsuspend),            /* 294 */
@@ -1315,6 +1323,8 @@ static SyscallTableEntry syscall_table[] = {
    GENXY(__NR_clock_gettime,        sys_clock_gettime),         /* 427 */
    GENXY(__NR_nanosleep,            sys_nanosleep),             /* 430 */
    GENXY(__NR_sigtimedwait,         sys_sigtimedwait),          /* 431 */
+   GENX_(__NR_mq_timedsend,         sys_mq_timedsend),          /* 432 */
+   GENXY(__NR_mq_timedreceive,      sys_mq_timedreceive),       /* 433 */
    GENXY(__NR_fstat,                sys_newfstat),              /* 440 */
    GENXY(__NR_pselect,              sys_pselect),               /* 436 */
    GENXY(__NR_wait4,                sys_wait4),                 /* 449 */

@@ -4902,6 +4902,302 @@ PRE(sys_sethostname)
    PRE_MEM_READ( "sethostname(name)", ARG1, ARG2 );
 }
 
+#if defined(HAVE_MQUEUE_H)
+
+PRE(sys_mq_open)
+{
+   if (ARG2 & VKI_O_CREAT) {
+      /* mqd_t
+       * mq_open(const char *name, int oflag, mode_t mode, struct mq_attr *attr);
+       */
+      PRINT("sys_mq_open ( %#lx(%s), %ld, %ld, %#lx )",
+            ARG1, (HChar*)ARG1, SARG2, ARG3, ARG4);
+      PRE_REG_READ4(vki_mqd_t, "mq_open",
+                    const char *, name, int, oflag,
+                    vki_mode_t, mode, struct vki_mq_attr *, attr);
+      PRE_MEM_RASCIIZ("mq_open(name)", ARG1);
+      if (ARG4 != 0) {
+         const struct vki_mq_attr *attr = (struct vki_mq_attr *)ARG4;
+         PRE_FIELD_READ("mq_open(attr->mq_maxmsg)", attr->mq_maxmsg);
+         PRE_FIELD_READ("mq_open(attr->mq_msgsize)", attr->mq_msgsize);
+      }
+   }
+   else {
+      /* mqd_t
+       * mq_open(const char *name, int oflag);
+       */
+      PRINT("sys_mq_open ( %#lx(%s), %ld )", ARG1, (HChar*)ARG1, SARG2);
+      PRE_REG_READ2(vki_mqd_t, "mq_open",
+                    const char *, name, int, oflag);
+      PRE_MEM_RASCIIZ("mq_open(name)", ARG1);
+   }
+}
+
+POST(sys_mq_open)
+{
+   vg_assert(SUCCESS);
+   if (!ML_(fd_allowed)(RES, "mq_open", tid, True)) {
+      VG_(close)(RES); // XXX: Is it really safe to do? mq_close(2)
+                       // should be used here.
+      SET_STATUS_Failure(VKI_EMFILE);
+   }
+   else {
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
+      if (VG_(clo_track_fds))
+#endif
+         ML_(record_fd_open_with_given_name)(tid, RES, (HChar*)ARG1);
+   }
+}
+
+PRE(sys_mq_close)
+{
+   /* int mq_close(mqd_t mqdes); */
+   PRINT("sys_mq_close ( %ld )", SARG1);
+   PRE_REG_READ1(int, "mq_close", vki_mqd_t, mqdes);
+   if (!ML_(fd_allowed)(ARG1, "mq_close", tid, False)) {
+      SET_STATUS_Failure(VKI_EBADF);
+   }
+}
+
+POST(sys_mq_close)
+{
+#if defined(OS_SUPPORTS_RESOLVING_FILENAME_FROM_FD)
+   if (VG_(clo_track_fds))
+#endif
+      ML_(record_fd_close)(ARG1);
+}
+
+PRE(sys_mq_unlink)
+{
+   /* int mq_unlink(const char *name); */
+   PRINT("sys_mq_unlink ( %#lx(%s) )", ARG1,(char*)ARG1);
+   PRE_REG_READ1(int, "mq_unlink", const char *, name);
+   PRE_MEM_RASCIIZ("mq_unlink(name)", ARG1);
+}
+
+PRE(sys_mq_send)
+{
+   /* int
+    * mq_send(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
+    *     unsigned msg_prio);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_mq_send ( %ld, %#lx, %lu, %lu )", SARG1, ARG2, ARG3, ARG4);
+   PRE_REG_READ4(int, "mq_send",
+                 vki_mqd_t, mqdes, const char *, msg_ptr, vki_size_t, msg_len,
+                 unsigned, msg_prio);
+   if (!ML_(fd_allowed)(ARG1, "mq_send", tid, False)) {
+      SET_STATUS_Failure(VKI_EBADF);
+   }
+   else {
+      PRE_MEM_READ("mq_send(msg_ptr)", ARG2, ARG3);
+   }
+}
+
+PRE(sys_mq_timedsend)
+{
+   /* int
+    * mq_timedsend(mqd_t mqdes, const char *msg_ptr, size_t msg_len,
+    *     unsigned msg_prio, const struct timespec *abs_timeout);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_mq_timedsend ( %ld, %#lx, %lu, %lu, %#lx )",
+         SARG1, ARG2, ARG3, ARG4, ARG5);
+   PRE_REG_READ5(int, "mq_timedsend",
+                 vki_mqd_t, mqdes, const char *, msg_ptr, vki_size_t, msg_len,
+                 unsigned, msg_prio, const struct timespec *, abs_timeout);
+   if (!ML_(fd_allowed)(ARG1, "mq_timedsend", tid, False)) {
+      SET_STATUS_Failure(VKI_EBADF);
+   }
+   else {
+      PRE_MEM_READ("mq_timedsend(msg_ptr)", ARG2, ARG3);
+      PRE_MEM_READ("mq_timedsend(abs_timeout)", ARG5,
+                   sizeof(struct vki_timespec));
+   }
+}
+
+PRE(sys_mq_receive)
+{
+   /* ssize_t
+    * mq_receive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
+    *     unsigned *msg_prio);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_mq_receive ( %ld, %#lx, %lu, %#lx )", SARG1, ARG2, ARG3, ARG4);
+   PRE_REG_READ4(vki_ssize_t, "mq_receive",
+                 vki_mqd_t, mqdes, char *, msg_ptr, vki_size_t, msg_len,
+                 unsigned *, msg_prio);
+   if (!ML_(fd_allowed)(ARG1, "mq_receive", tid, False)) {
+      SET_STATUS_Failure(VKI_EBADF);
+   }
+   else {
+      PRE_MEM_WRITE("mq_receive(msg_ptr)", ARG2, ARG3);
+      if (ARG4 != 0) {
+         PRE_MEM_WRITE("mq_receive(msg_prio)", ARG4, sizeof(unsigned));
+      }
+   }
+}
+
+POST(sys_mq_receive)
+{
+   POST_MEM_WRITE(ARG2, RES);
+   if (ARG4 != 0)
+      POST_MEM_WRITE(ARG4, sizeof(unsigned));
+}
+
+PRE(sys_mq_timedreceive)
+{
+   /* ssize_t
+    * mq_timedreceive(mqd_t mqdes, char *msg_ptr, size_t msg_len,
+    *     unsigned *msg_prio, const struct timespec *restrict abs_timeout);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_mq_timedreceive ( %ld, %#lx, %lu, %#lx, %#lx )",
+         SARG1, ARG2, ARG3, ARG4, ARG5);
+   PRE_REG_READ5(vki_ssize_t, "mq_timedreceive",
+                 vki_mqd_t, mqdes, char *, msg_ptr, vki_size_t, msg_len,
+                 unsigned *, msg_prio, const struct timespec *, abs_timeout);
+   if (!ML_(fd_allowed)(ARG1, "mq_timedreceive", tid, False)) {
+      SET_STATUS_Failure(VKI_EBADF);
+   }
+   else {
+      PRE_MEM_WRITE("mq_timedreceive(msg_ptr)", ARG2, ARG3);
+      if (ARG4 != 0) {
+         PRE_MEM_WRITE("mq_timedreceive(msg_prio)", ARG4, sizeof(unsigned));
+      }
+      PRE_MEM_READ("mq_timedreceive(abs_timeout)", ARG5,
+                   sizeof(struct vki_timespec));
+   }
+}
+
+POST(sys_mq_timedreceive)
+{
+   POST_MEM_WRITE(ARG2, RES);
+   if (ARG4 != 0)
+      POST_MEM_WRITE(ARG4, sizeof(unsigned));
+}
+
+PRE(sys_mq_notify)
+{
+   /* int
+    * mq_notify(mqd_t mqdes, const struct sigevent *notification);
+    */
+   PRINT("sys_mq_notify( %ld, %#lx )", SARG1, ARG2);
+   PRE_REG_READ2(int, "mq_notify",
+                 vki_mqd_t, mqdes, const struct vki_sigevent *, notification);
+   if (!ML_(fd_allowed)(ARG1, "mq_notify", tid, False)) {
+      SET_STATUS_Failure(VKI_EBADF);
+   }
+   else {
+      if (ARG2 != 0) {
+         const struct vki_sigevent *notification = (struct vki_sigevent *)ARG2;
+
+         PRE_FIELD_READ("mq_notify(notification->sigev_notify)",
+                        notification->sigev_notify);
+         switch (notification->sigev_notify) {
+         case VKI_SIGEV_NONE:
+            break;
+
+         case VKI_SIGEV_SIGNAL:
+            PRE_FIELD_READ("mq_notify(notification->sigev_signo)",
+                           notification->sigev_signo);
+            PRE_FIELD_READ("mq_notify(notification->sigev_value)",
+                           notification->sigev_value);
+            break;
+
+         case VKI_SIGEV_THREAD:
+            PRE_FIELD_READ(
+               "mq_notify(notification->sigev_notify_function)",
+               notification->sigev_notify_function);
+            if (notification->sigev_notify_attributes != NULL)
+               PRE_FIELD_READ(
+                  "mq_notify(notification->sigev_notify_attributes)",
+                  notification->sigev_notify_attributes);
+            /* XXX: In order to handle this we have to inject our own
+             * thread wrapper to the sigevent which runs the client code.
+             */
+            VG_(unimplemented)(
+               "Syswrap of the mq_notify call with notification->sigev_notify"
+               " == SIGEV_THREAD.");
+            break;
+
+         default:
+            SET_STATUS_Failure(VKI_EINVAL);
+            break;
+         }
+      }
+   }
+}
+
+PRE(sys_mq_getattr)
+{
+   /* int
+    * mq_getattr(mqd_t mqdes, struct mq_attr *mqstat);
+    */
+   PRINT("sys_mq_getattr( %ld, %#lx )", SARG1, ARG2);
+   PRE_REG_READ2(int, "mq_getattr",
+                 vki_mqd_t, mqdes, struct vki_mq_attr *, mqstat);
+   if (!ML_(fd_allowed)(ARG1, "mq_getattr", tid, False)) {
+      SET_STATUS_Failure(VKI_EBADF);
+   }
+   else {
+      struct vki_mq_attr *mqstat = (struct vki_mq_attr *)ARG2;
+      PRE_FIELD_WRITE("mq_getattr(mqstat->mq_flags)", mqstat->mq_flags);
+      PRE_FIELD_WRITE("mq_getattr(mqstat->mq_maxmsg)", mqstat->mq_maxmsg);
+      PRE_FIELD_WRITE("mq_getattr(mqstat->mq_msgsize)", mqstat->mq_msgsize);
+      PRE_FIELD_WRITE("mq_getattr(mqstat->mq_curmsgs)", mqstat->mq_curmsgs);
+   }
+}
+
+POST(sys_mq_getattr)
+{
+   struct vki_mq_attr *mqstat = (struct vki_mq_attr *)ARG2;
+   POST_FIELD_WRITE(mqstat->mq_flags);
+   POST_FIELD_WRITE(mqstat->mq_maxmsg);
+   POST_FIELD_WRITE(mqstat->mq_msgsize);
+   POST_FIELD_WRITE(mqstat->mq_curmsgs);
+}
+
+PRE(sys_mq_setattr)
+{
+   /* int
+    * mq_setattr(mqd_t mqdes, const struct mq_attr *restrict mqstat,
+    *     struct mq_attr *restrict omqstat);
+    */
+   PRINT("sys_mq_setattr( %ld, %#lx, %#lx )", SARG1, ARG2, ARG3);
+   PRE_REG_READ3(int, "mq_setattr",
+                 vki_mqd_t, mqdes, const struct vki_mq_attr *, mqstat,
+                 struct vki_mq_attr *, omqstat);
+   if (!ML_(fd_allowed)(ARG1, "mq_setattr", tid, False)) {
+      SET_STATUS_Failure(VKI_EBADF);
+   }
+   else {
+      const struct vki_mq_attr *mqstat = (struct vki_mq_attr *)ARG2;
+      PRE_FIELD_READ("mq_setattr(mqstat->mq_flags)", mqstat->mq_flags);
+
+      if (ARG3 != 0) {
+         struct vki_mq_attr *omqstat = (struct vki_mq_attr *)ARG3;
+         PRE_FIELD_WRITE("mq_setattr(omqstat->mq_flags)", omqstat->mq_flags);
+         PRE_FIELD_WRITE("mq_setattr(omqstat->mq_maxmsg)", omqstat->mq_maxmsg);
+         PRE_FIELD_WRITE("mq_setattr(omqstat->mq_msgsize)", omqstat->mq_msgsize);
+         PRE_FIELD_WRITE("mq_setattr(omqstat->mq_curmsgs)", omqstat->mq_curmsgs);
+      }
+   }
+}
+
+POST(sys_mq_setattr)
+{
+   if (ARG3 != 0) {
+      struct vki_mq_attr *omqstat = (struct vki_mq_attr *)ARG3;
+      POST_FIELD_WRITE(omqstat->mq_flags);
+      POST_FIELD_WRITE(omqstat->mq_maxmsg);
+      POST_FIELD_WRITE(omqstat->mq_msgsize);
+      POST_FIELD_WRITE(omqstat->mq_curmsgs);
+   }
+}
+
+#endif /* defined(HAVE_MQUEUE_H) */
+
 #undef PRE
 #undef POST
 

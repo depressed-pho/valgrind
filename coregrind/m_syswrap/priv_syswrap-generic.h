@@ -172,6 +172,16 @@ DECL_TEMPLATE(generic, sys_sigprocmask);           // POSIX.1
 DECL_TEMPLATE(generic, sys_sigsuspend);            // POSIX.1
 DECL_TEMPLATE(generic, sys_sigtimedwait);          // POSIX.1
 DECL_TEMPLATE(generic, sys_clock_gettime);         // POSIX.1b
+DECL_TEMPLATE(generic, sys_mq_open);               // POSIX.1
+DECL_TEMPLATE(generic, sys_mq_close);              // POSIX.1
+DECL_TEMPLATE(generic, sys_mq_unlink);             // POSIX.1
+DECL_TEMPLATE(generic, sys_mq_send);               // POSIX.1
+DECL_TEMPLATE(generic, sys_mq_timedsend);          // POSIX.1
+DECL_TEMPLATE(generic, sys_mq_receive);            // POSIX.1
+DECL_TEMPLATE(generic, sys_mq_timedreceive);       // POSIX.1
+DECL_TEMPLATE(generic, sys_mq_notify);             // POSIX.1
+DECL_TEMPLATE(generic, sys_mq_getattr);            // POSIX.1
+DECL_TEMPLATE(generic, sys_mq_setattr);            // POSIX.1
 
 // These ones aren't POSIX, but are in some standard and look reasonably
 // generic,  and are the same for all architectures under Linux.

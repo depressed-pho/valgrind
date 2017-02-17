@@ -50,7 +50,7 @@
 #define VKI_BINPRM_BUF_SIZE VKI_PATH_MAX
 
 #include <lwp.h>
-#define vki_lwpid_t lwpid_t
+typedef lwpid_t vki_lwpid_t;
 
 #include <machine/frame.h>
 #define vki_sigframe_siginfo sigframe_siginfo
@@ -87,7 +87,7 @@
 #else
 #  error "Unknown architecture"
 #endif
-#define vki_fpregset_t __fpregset_t
+typedef __fpregset_t vki_fpregset_t;
 
 #include <machine/psl.h>
 #define VKI_PSL_USER    PSL_USER
@@ -101,6 +101,10 @@
 #define VKI_PAGE_SIZE      PAGE_SIZE
 #define VKI_MAX_PAGE_SHIFT VKI_PAGE_SHIFT
 #define VKI_MAX_PAGE_SIZE  VKI_PAGE_SIZE
+
+#include <mqueue.h>
+#define vki_mq_attr mq_attr
+typedef mqd_t       vki_mqd_t;
 
 #include <netinet/in.h>
 #define vki_sockaddr_in  sockaddr_in
@@ -209,20 +213,20 @@ typedef struct {
    int      sa_tramp_abi;
 } vki_sigaction_toK_t;
 typedef struct sigaction vki_sigaction_fromK_t;
-#define vki_siginfo_t    siginfo_t
-#define vki_sigset_t     sigset_t
-#define vki_stack_t      stack_t
+typedef siginfo_t vki_siginfo_t;
+typedef sigset_t  vki_sigset_t;
+typedef stack_t   vki_stack_t;
 
 #include <stddef.h>
-#define vki_size_t size_t
+typedef size_t vki_size_t;
 
 #include <termios.h>
 #define vki_termios termios
 
 #include <time.h>
 #define VKI_CLOCK_MONOTONIC CLOCK_MONOTONIC
-#define vki_clockid_t       clockid_t
-#define vki_time_t          time_t
+typedef clockid_t           vki_clockid_t;
+typedef time_t              vki_time_t;
 #define vki_timespec        timespec
 
 #include <ucontext.h>
@@ -232,7 +236,7 @@ typedef struct sigaction vki_sigaction_fromK_t;
 #define VKI_UC_FPU     _UC_FPU
 #define VKI_UC_TLSBASE _UC_TLSBASE
 #define vki_ucontext   __ucontext
-#define vki_ucontext_t ucontext_t
+typedef ucontext_t     vki_ucontext_t;
 
 #include <unistd.h>
 #define VKI_R_OK     R_OK
@@ -359,6 +363,12 @@ union vki_semun {
 #define VKI_SHMLBA     VKI_PAGE_SIZE /* This is actually sysconf(_SC_PAGESIZE) */
 #define vki_shmid_ds   shmid_ds
 
+#include <sys/signal.h>
+#define vki_sigevent     sigevent
+#define VKI_SIGEV_NONE   SIGEV_NONE
+#define VKI_SIGEV_SIGNAL SIGEV_SIGNAL
+#define VKI_SIGEV_THREAD SIGEV_THREAD
+
 #include <sys/socket.h>
 #define VKI_AF_INET       AF_INET
 #define VKI_AF_INET6      AF_INET6
@@ -376,9 +386,9 @@ union vki_semun {
 #define VKI_SOL_SOCKET    SOL_SOCKET
 #define vki_cmsghdr       cmsghdr
 #define vki_msghdr        msghdr
-#define vki_sa_family_t   sa_family_t
+typedef sa_family_t       vki_sa_family_t;
 #define vki_sockaddr      sockaddr
-#define vki_socklen_t     socklen_t
+typedef socklen_t         vki_socklen_t;
 
 #include <sys/stat.h>
 #define st_atime_nsec st_atimensec
@@ -401,7 +411,7 @@ union vki_semun {
 #define VKI_S_IXGRP   S_IXGRP
 #define VKI_S_IXOTH   S_IXOTH
 #define VKI_S_IXUSR   S_IXUSR
-#define vki_mode_t    mode_t
+typedef mode_t        vki_mode_t;
 #define vki_stat      stat
 
 #include <sys/time.h>
@@ -416,12 +426,12 @@ union vki_semun {
 #define VKI_TIOCGETA TIOCGETA
 
 #include <sys/types.h>
-#define vki_caddr_t caddr_t
-#define vki_gid_t   gid_t
-#define vki_off_t   off_t
-#define vki_pid_t   pid_t
-#define vki_uid_t   uid_t
-typedef uint32_t    vki_u32;
+typedef caddr_t  vki_caddr_t;
+typedef gid_t    vki_gid_t;
+typedef off_t    vki_off_t;
+typedef pid_t    vki_pid_t;
+typedef uid_t    vki_uid_t;
+typedef uint32_t vki_u32;
 
 #include <sys/uio.h>
 #define vki_iovec iovec
