@@ -1278,6 +1278,7 @@ static SyscallTableEntry syscall_table[] = {
    NBDXY(__NR_pipe,                 sys_pipe),                  /*  42 */
    NBDXY(__NR_ioctl,                sys_ioctl),                 /*  54 */
    GENX_(__NR_readlink,             sys_readlink),              /*  58 */
+   GENX_(__NR_execve,               sys_execve),                /*  59 */
    GENXY(__NR_munmap,               sys_munmap),                /*  73 */
    GENXY(__NR_mprotect,             sys_mprotect),              /*  74 */
    GENXY(__NR_dup2,                 sys_dup2),                  /*  90 */

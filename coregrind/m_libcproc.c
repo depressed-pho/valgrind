@@ -268,13 +268,21 @@ void VG_(env_remove_valgrind_env_stuff)(HChar** envp, Bool ro_strings,
    VG_(sprintf)(buf, "%s*", VG_(libdir));
    mash_colon_env(ld_library_path_str, buf);
 
+   // And if these variables become empty, remove them
+   // completely. Leaving empty variables causes troubles, e.g. empty
+   // LD_PRELOAD causes NetBSD ld.so to try to load a file "".
+   if (ld_preload_str != NULL && VG_(strlen)(ld_preload_str) == 0)
+       VG_(env_unsetenv)(envp, "LD_PRELOAD", free_fn);
+   if (ld_library_path_str != NULL && VG_(strlen)(ld_library_path_str) == 0)
+       VG_(env_unsetenv)(envp, "LD_LIBRARY_PATH", free_fn);
+   if (dyld_insert_libraries_str != NULL && VG_(strlen)(dyld_insert_libraries_str) == 0)
+       VG_(env_unsetenv)(envp, "DYLD_INSERT_LIBRARIES", free_fn);
+
    // Remove VALGRIND_LAUNCHER variable.
    VG_(env_unsetenv)(envp, VALGRIND_LAUNCHER, free_fn);
 
    // Remove DYLD_SHARED_REGION variable.
    VG_(env_unsetenv)(envp, "DYLD_SHARED_REGION", free_fn);
-
-   // XXX if variable becomes empty, remove it completely?
 
    VG_(free)(buf);
 }

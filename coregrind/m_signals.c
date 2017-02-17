@@ -1236,7 +1236,8 @@ SysRes VG_(do_sys_sigaction) ( Int signo,
 
 #if defined(VGO_netbsd)
    /* Reject bad trampolines or their ABI version */
-   switch (new_act->sa_tramp_abi) {
+   if (new_act) {
+      switch (new_act->sa_tramp_abi) {
       case 0: /* sigcontext, kernel supplied trampoline */
          if (new_act->sa_tramp != NULL)
             goto bad_trampoline;
@@ -1249,6 +1250,7 @@ SysRes VG_(do_sys_sigaction) ( Int signo,
          break;
       default:
          goto bad_trampoline;
+      }
    }
 #endif
 
