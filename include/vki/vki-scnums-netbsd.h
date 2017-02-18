@@ -40,6 +40,8 @@
 #include <sys/syscall.h>
 
 #define __NR_access             SYS_access
+#define __NR_chdir              SYS_chdir
+#define __NR_chmod              SYS_chmod
 #define __NR_clock_gettime      SYS___clock_gettime50
 #define __NR_close              SYS_close
 #define __NR_connect            SYS_connect
@@ -83,6 +85,8 @@
 #define __NR_lwp_unpark         SYS__lwp_unpark
 #define __NR_lwp_unpark_all     SYS__lwp_unpark_all
 #define __NR_lwp_wakeup         SYS__lwp_wakeup
+#define __NR_minherit           SYS_minherit
+#define __NR_mkdir              SYS_mkdir
 #define __NR_mkfifo             SYS_mkfifo
 #define __NR_mknod              SYS___mknod50
 #define __NR_mmap               SYS_mmap
@@ -110,9 +114,12 @@
 #define __NR_read               SYS_read
 #define __NR_readlink           SYS_readlink
 #define __NR_rename             SYS_rename
+#define __NR_rmdir              SYS_rmdir
 #define __NR_sched_yield        SYS_sched_yield
 #define __NR_select             SYS___select50
 #define __NR_semctl             SYS_____semctl50
+#define __NR_semget             SYS_semget
+#define __NR_semop              SYS_semop
 #define __NR_sendto             SYS_sendto
 #define __NR_setcontext         SYS_setcontext
 #define __NR_setitimer          SYS___setitimer50

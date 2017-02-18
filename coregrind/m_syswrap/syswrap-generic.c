@@ -4902,6 +4902,62 @@ PRE(sys_sethostname)
    PRE_MEM_READ( "sethostname(name)", ARG1, ARG2 );
 }
 
+#if defined(HAVE_SYS_SEM_H)
+
+PRE(sys_semget)
+{
+   /* int semget(key_t key, int nsems, int semflg); */
+   PRINT("sys_semget ( %ld, %ld, %ld )", SARG1, SARG2, SARG3);
+   PRE_REG_READ3(int, "semget", vki_key_t, key, int, nsems, int, semflg);
+}
+
+PRE(sys_semop)
+{
+   /* int semop(int semid, struct sembuf *sops, size_t nsops); */
+   *flags |= SfMayBlock;
+   PRINT("sys_semop ( %ld, %#lx, %lu )", SARG1, ARG2, ARG3);
+   PRE_REG_READ3(int, "semop",
+                 int, semid, struct vki_sembuf *, sops, vki_size_t, nsops);
+   ML_(generic_PRE_sys_semop)(tid, ARG1, ARG2, ARG3);
+}
+
+PRE(sys_semctl)
+{
+   /* int semctl(int semid, int semnum, int cmd, ...); */
+   switch (ARG3) {
+   case VKI_SETVAL:
+      PRINT("sys_semctl ( %ld, %ld, %ld, %ld )", SARG1, SARG2, SARG3, SARG4);
+      PRE_REG_READ4(int, "semctl",
+                    int, semid, int, semnum, int, cmd, int, val);
+      break;
+   case VKI_GETALL:
+   case VKI_SETALL:
+      PRINT("sys_semctl ( %ld, %ld, %ld, %#lx )", SARG1, SARG2, SARG3, ARG4);
+      PRE_REG_READ4(int, "semctl",
+                    int, semid, int, semnum, int, cmd, unsigned short *, array);
+      break;
+   case VKI_IPC_STAT:
+   case VKI_IPC_SET:
+      PRINT("sys_semctl ( %ld, %ld, %ld, %#lx )", SARG1, SARG2, SARG3, ARG4);
+      PRE_REG_READ4(int, "semctl",
+                    int, semid, int, semnum, int, cmd, struct vki_semid_ds *, buf);
+      break;
+   default:
+      PRINT("sys_semctl ( %ld, %ld, %ld )", SARG1, SARG2, SARG3);
+      PRE_REG_READ3(int, "semctl",
+                    int, semid, int, semnum, int, cmd);
+      break;
+   }
+   ML_(generic_PRE_sys_semctl)(tid, ARG1, ARG2, ARG3, ARG4);
+}
+
+POST(sys_semctl)
+{
+   ML_(generic_POST_sys_semctl)(tid, RES, ARG1, ARG2, ARG3, ARG4);
+}
+
+#endif /* defined(HAVE_SYS_SEM_H) */
+
 #if defined(HAVE_MQUEUE_H)
 
 PRE(sys_mq_open)

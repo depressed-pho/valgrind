@@ -3876,6 +3876,7 @@ AC_CHECK_HEADERS([       \
         sys/klog.h       \
         sys/poll.h       \
         sys/prctl.h      \
+        sys/sem.h        \
         sys/signal.h     \
         sys/signalfd.h   \
         sys/syscall.h    \

@@ -348,6 +348,8 @@ typedef ucontext_t     vki_ucontext_t;
 #include <sys/sem.h>
 #define VKI_GETALL   GETALL
 #define VKI_SETALL   SETALL
+#define VKI_SETVAL   SETVAL
+typedef key_t        vki_key_t;
 #define vki_sembuf   sembuf
 #define vki_semid_ds semid_ds
 union vki_semun {

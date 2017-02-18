@@ -439,6 +439,7 @@ DECL_TEMPLATE(netbsd, sys_mmap);
 DECL_TEMPLATE(netbsd, sys_lseek);
 DECL_TEMPLATE(netbsd, sys_ftruncate);
 DECL_TEMPLATE(netbsd, sys_sysctl);
+DECL_TEMPLATE(netbsd, sys_minherit);
 DECL_TEMPLATE(netbsd, sys_issetugid);
 DECL_TEMPLATE(netbsd, sys_getcontext);
 DECL_TEMPLATE(netbsd, sys_setcontext);
@@ -843,6 +844,14 @@ POST(sys_sysctl)
       POST_MEM_WRITE(ARG4, sizeof(*oldlenp));
       POST_MEM_WRITE(ARG3, *oldlenp);
    }
+}
+
+PRE(sys_minherit)
+{
+   /* int minherit(void *addr, size_t len, int inherit); */
+   PRINT("sys_minherit( %#lx, %lu, %ld )", ARG1, ARG2, SARG3);
+   PRE_REG_READ3(int, "minherit",
+                 void *, addr, vki_size_t, len, int, inherit);
 }
 
 PRE(sys_issetugid)
@@ -1292,6 +1301,8 @@ static SyscallTableEntry syscall_table[] = {
    GENXY(__NR_open,                 sys_open),                  /*   5 */
    GENXY(__NR_close,                sys_close),                 /*   6 */
    GENX_(__NR_unlink,               sys_unlink),                /*  10 */
+   GENX_(__NR_chdir,                sys_chdir),                 /*  12 */
+   GENX_(__NR_chmod,                sys_chmod),                 /*  15 */
    GENX_(__NR_getpid,               sys_getpid),                /*  20 */
    GENX_(__NR_getuid,               sys_getuid),                /*  24 */
    GENX_(__NR_geteuid,              sys_geteuid),               /*  25 */
@@ -1305,16 +1316,21 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_execve,               sys_execve),                /*  59 */
    GENXY(__NR_munmap,               sys_munmap),                /*  73 */
    GENXY(__NR_mprotect,             sys_mprotect),              /*  74 */
+   GENX_(__NR_getpgrp,              sys_getpgrp),               /*  81 */
    GENXY(__NR_dup2,                 sys_dup2),                  /*  90 */
    NBDXY(__NR_fcntl,                sys_fcntl),                 /*  92 */
    NBDX_(__NR_connect,              sys_connect),               /*  98 */
    NBDX_(__NR_sendto,               sys_sendto),                /* 133 */
+   GENX_(__NR_mkdir,                sys_mkdir),                 /* 136 */
+   GENX_(__NR_rmdir,                sys_rmdir),                 /* 137 */
    GENXY(__NR_getrlimit,            sys_getrlimit),             /* 194 */
    NBDX_(__NR_mmap,                 sys_mmap),                  /* 197 */
    NBDXY(__NR___syscall,            sys___syscall),             /* 198 */
    NBDX_(__NR_lseek,                sys_lseek),                 /* 199 */
    NBDX_(__NR_ftruncate,            sys_ftruncate),             /* 201 */
    NBDXY(__NR_sysctl,               sys_sysctl),                /* 202 */
+   GENX_(__NR_semget,               sys_semget),                /* 221 */
+   GENX_(__NR_semop,                sys_semop),                 /* 222 */
    GENXY(__NR_mq_open,              sys_mq_open),               /* 257 */
    GENXY(__NR_mq_close,             sys_mq_close),              /* 258 */
    GENX_(__NR_mq_unlink,            sys_mq_unlink),             /* 259 */
@@ -1323,6 +1339,7 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_mq_notify,            sys_mq_notify),             /* 262 */
    GENX_(__NR_mq_send,              sys_mq_send),               /* 263 */
    GENXY(__NR_mq_receive,           sys_mq_receive),            /* 264 */
+   NBDX_(__NR_minherit,             sys_minherit),              /* 273 */
    GENX_(__NR_vfork,                sys_vfork),                 /* 282 */
    GENXY(__NR_sigprocmask,          sys_sigprocmask),           /* 293 */
    GENX_(__NR_sigsuspend,           sys_sigsuspend),            /* 294 */
@@ -1343,6 +1360,7 @@ static SyscallTableEntry syscall_table[] = {
    NBDXY(__NR_sigaction_sigtramp,   sys_sigaction_sigtramp),    /* 340 */
    NBDX_(__NR_sched_yield,          sys_sched_yield),           /* 350 */
    NBDXY(__NR_fstatvfs1,            sys_fstatvfs1),             /* 358 */
+   GENXY(__NR_getdents,             sys_getdents),              /* 390 */
    NBDXY(__NR_socket,               sys_socket),                /* 394 */
    GENXY(__NR_select,               sys_select),                /* 417 */
    GENXY(__NR_gettimeofday,         sys_gettimeofday),          /* 418 */
@@ -1354,6 +1372,7 @@ static SyscallTableEntry syscall_table[] = {
    GENXY(__NR_mq_timedreceive,      sys_mq_timedreceive),       /* 433 */
    GENXY(__NR_stat,                 sys_newstat),               /* 439 */
    GENXY(__NR_fstat,                sys_newfstat),              /* 440 */
+   GENXY(__NR_semctl,               sys_semctl),                /* 442 */
    GENXY(__NR_pselect,              sys_pselect),               /* 436 */
    GENXY(__NR_wait4,                sys_wait4),                 /* 449 */
    NBDXY(__NR_pipe2,                sys_pipe2),                 /* 453 */
