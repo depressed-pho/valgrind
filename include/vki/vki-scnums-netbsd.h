@@ -50,12 +50,14 @@
 #define __NR_fcntl              SYS_fcntl
 #define __NR_fork               SYS_fork
 #define __NR_fstat              SYS___fstat50
+#define __NR_fstatvfs1          SYS_fstatvfs1
 #define __NR_ftruncate          SYS_ftruncate
 #define __NR_getcontext         SYS_getcontext
 #define __NR_getcwd             SYS___getcwd
 #define __NR_getdents           SYS___getdents30
 #define __NR_getegid            SYS_getegid
 #define __NR_geteuid            SYS_geteuid
+#define __NR_getgid             SYS_getgid
 #define __NR_getgroups          SYS_getgroups
 #define __NR_getpeername        SYS_getpeername
 #define __NR_getpgrp            SYS_getpgrp
@@ -65,6 +67,7 @@
 #define __NR_getsockname        SYS_getsockname
 #define __NR_getsockopt         SYS_getsockopt
 #define __NR_gettimeofday       SYS___gettimeofday50
+#define __NR_getuid             SYS_getuid
 #define __NR_ioctl              SYS_ioctl
 #define __NR_issetugid          SYS_issetugid
 #define __NR_kill               SYS_kill

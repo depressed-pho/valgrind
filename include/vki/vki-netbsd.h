@@ -414,6 +414,9 @@ typedef socklen_t         vki_socklen_t;
 typedef mode_t        vki_mode_t;
 #define vki_stat      stat
 
+#include <sys/statvfs.h>
+#define vki_statvfs statvfs
+
 #include <sys/time.h>
 #define vki_itimerval itimerval
 #define vki_timeval   timeval
