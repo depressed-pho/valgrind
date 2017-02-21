@@ -4902,6 +4902,100 @@ PRE(sys_sethostname)
    PRE_MEM_READ( "sethostname(name)", ARG1, ARG2 );
 }
 
+PRE(sys_bind)
+{
+   /* int
+    * bind(int s, const struct sockaddr *name, socklen_t namelen); */
+   PRINT("sys_bind ( %ld, %#lx, %lu )", SARG1, ARG2, ARG3);
+   PRE_REG_READ3(int, "bind",
+                 int, s, const struct vki_sockaddr *, name, vki_socklen_t, namelen);
+   ML_(generic_PRE_sys_bind)(tid, ARG1, ARG2, ARG3);
+}
+
+PRE(sys_listen)
+{
+   /* int listen(int s, int backlog); */
+   PRINT("sys_listen ( %ld, %ld )", SARG1, SARG2);
+   PRE_REG_READ2(int, "listen", int, s, int, backlog);
+}
+
+PRE(sys_accept)
+{
+   /* int
+    * accept(int s, struct sockaddr * restrict addr,
+    *     socklen_t * restrict addrlen);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_accept ( %ld, %#lx, %#lx )", SARG1, ARG2, ARG3);
+   PRE_REG_READ3(int, "accept",
+                 int, s, struct vki_sockaddr *, addr,
+                 vki_socklen_t *, addrlen);
+   ML_(generic_PRE_sys_accept)(tid, ARG1, ARG2, ARG3);
+}
+
+POST(sys_accept)
+{
+   SET_STATUS_from_SysRes(
+      ML_(generic_POST_sys_accept)(tid, VG_(mk_SysRes_Success)(RES),
+                                   ARG1, ARG2, ARG3));
+}
+
+PRE(sys_connect)
+{
+   /* int
+    * connect(int s, const struct sockaddr *name, socklen_t namelen);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_connect ( %ld, %#lx, %lu )", SARG1, ARG2, ARG3);
+   PRE_REG_READ3(int, "connect", int, s, const struct vki_sockaddr *, name,
+                 vki_socklen_t, namelen);
+   ML_(generic_PRE_sys_connect)(tid, ARG1, ARG2, ARG3);
+}
+
+PRE(sys_sendto)
+{
+   /* ssize_t
+    * sendto(int s, const void *msg, size_t len, int flags,
+    *     const struct sockaddr *to, socklen_t tolen);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_sendto ( %ld, %#lx, %lu, %ld, %#lx, %lu )",
+         SARG1, ARG2, ARG3, SARG4, ARG5, ARG6);
+   PRE_REG_READ6(vki_ssize_t, "sendto", int, s, const void *, msg,
+                 vki_size_t, len, int, flags, const struct vki_sockaddr *, to,
+                 vki_socklen_t, tolen);
+   ML_(generic_PRE_sys_sendto)(tid, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6);
+}
+
+PRE(sys_sendmsg)
+{
+   /* ssize_t
+    * sendmsg(int s, const struct msghdr *msg, int flags);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_sendmsg ( %ld, %#lx, %ld )", SARG1, ARG2, SARG3);
+   PRE_REG_READ3(vki_ssize_t, "sendmsg",
+                 int, s, const struct vki_msghdr *, msg, int, flags);
+   ML_(generic_PRE_sys_sendmsg)(tid, "msg", (struct vki_msghdr *)ARG2);
+}
+
+PRE(sys_recvmsg)
+{
+   /* ssize_t
+    * recvmsg(int s, struct msghdr *msg, int flags);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_recvmsg ( %ld, %#lx, %ld )", SARG1, ARG2, SARG3);
+   PRE_REG_READ3(vki_ssize_t, "recvmsg",
+                 int, s, struct vki_msghdr *, msg, int, flags);
+   ML_(generic_PRE_sys_recvmsg)(tid, "msg", (struct vki_msghdr *)ARG2);
+}
+
+POST(sys_recvmsg)
+{
+   ML_(generic_POST_sys_recvmsg)(tid, "msg", (struct vki_msghdr *)ARG2, RES);
+}
+
 #if defined(HAVE_SYS_SEM_H)
 
 PRE(sys_semget)

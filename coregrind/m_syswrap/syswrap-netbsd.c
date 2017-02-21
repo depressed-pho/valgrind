@@ -433,12 +433,11 @@ DECL_TEMPLATE(netbsd, sys_pipe);
 DECL_TEMPLATE(netbsd, sys_pipe2);
 DECL_TEMPLATE(netbsd, sys_ioctl);
 DECL_TEMPLATE(netbsd, sys_fcntl);
-DECL_TEMPLATE(netbsd, sys_connect);
-DECL_TEMPLATE(netbsd, sys_sendto);
 DECL_TEMPLATE(netbsd, sys_mmap);
 DECL_TEMPLATE(netbsd, sys_lseek);
 DECL_TEMPLATE(netbsd, sys_ftruncate);
 DECL_TEMPLATE(netbsd, sys_sysctl);
+DECL_TEMPLATE(netbsd, sys__ksem_init);
 DECL_TEMPLATE(netbsd, sys_minherit);
 DECL_TEMPLATE(netbsd, sys_issetugid);
 DECL_TEMPLATE(netbsd, sys_getcontext);
@@ -731,33 +730,6 @@ POST(sys_fcntl)
    }
 }
 
-PRE(sys_connect)
-{
-   /* int
-    * connect(int s, const struct sockaddr *name, socklen_t namelen);
-    */
-   *flags |= SfMayBlock;
-   PRINT("sys_connect ( %ld, %#lx, %lu )", SARG1, ARG2, ARG3);
-   PRE_REG_READ3(int, "connect", int, s, const struct vki_sockaddr *, name,
-                 vki_socklen_t, namelen);
-   ML_(generic_PRE_sys_connect)(tid, ARG1, ARG2, ARG3);
-}
-
-PRE(sys_sendto)
-{
-   /* ssize_t
-    * sendto(int s, const void *msg, size_t len, int flags,
-    *     const struct sockaddr *to, socklen_t tolen);
-    */
-   *flags |= SfMayBlock;
-   PRINT("sys_sendto ( %ld, %#lx, %lu, %ld, %#lx, %lu )",
-         SARG1, ARG2, ARG3, SARG4, ARG5, ARG6);
-   PRE_REG_READ6(vki_ssize_t, "sendto", int, s, const void *, msg,
-                 vki_size_t, len, int, flags, const struct vki_sockaddr *, to,
-                 vki_socklen_t, tolen);
-   ML_(generic_PRE_sys_sendto)(tid, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6);
-}
-
 PRE(sys_mmap)
 {
    /* void *
@@ -798,7 +770,13 @@ PRE(sys_lseek)
 {
    /* off_t lseek(int fildes, off_t offset, int whence); */
    PRINT("sys_lseek ( %ld, %ld, %ld, %ld )", SARG1, SARG2, SARG3, SARG4);
+
+#if defined(VGA_amd64)
    PRE_REG_READ4(vki_off_t, "lseek", int, fildes, int, pad, vki_off_t, offset, int, whence);
+
+#else
+#  error Unknown architecture
+#endif
 }
 
 PRE(sys_ftruncate)
@@ -806,7 +784,13 @@ PRE(sys_ftruncate)
    /* int ftruncate(int fd, off_t length); */
    *flags |= SfMayBlock;
    PRINT("sys_ftruncate ( %ld, %ld, %ld )", SARG1, SARG2, SARG3);
+
+#if defined(VGA_amd64)
    PRE_REG_READ3(int, "ftruncate", int, fd, int, pad, vki_off_t, length);
+
+#else
+#  error Unknown architecture
+#endif
 }
 
 PRE(sys_sysctl)
@@ -846,10 +830,24 @@ POST(sys_sysctl)
    }
 }
 
+PRE(sys__ksem_init)
+{
+   /* int _ksem_init(int value, intptr_t *idp); */
+   PRINT("sys__ksem_init ( %ld, %#lx )", SARG1, ARG2);
+   PRE_REG_READ2(int, "_ksem_init",
+                 int, value, intptr_t *, idp);
+   PRE_MEM_WRITE("_ksem_init(idp)", ARG2, sizeof(intptr_t));
+}
+
+POST(sys__ksem_init)
+{
+   POST_MEM_WRITE(ARG2, sizeof(intptr_t));
+}
+
 PRE(sys_minherit)
 {
    /* int minherit(void *addr, size_t len, int inherit); */
-   PRINT("sys_minherit( %#lx, %lu, %ld )", ARG1, ARG2, SARG3);
+   PRINT("sys_minherit ( %#lx, %lu, %ld )", ARG1, ARG2, SARG3);
    PRE_REG_READ3(int, "minherit",
                  void *, addr, vki_size_t, len, int, inherit);
 }
@@ -1306,6 +1304,9 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_getpid,               sys_getpid),                /*  20 */
    GENX_(__NR_getuid,               sys_getuid),                /*  24 */
    GENX_(__NR_geteuid,              sys_geteuid),               /*  25 */
+   GENXY(__NR_recvmsg,              sys_recvmsg),               /*  27 */
+   GENX_(__NR_sendmsg,              sys_sendmsg),               /*  28 */
+   GENXY(__NR_accept,               sys_accept),                /*  30 */
    GENX_(__NR_access,               sys_access),                /*  33 */
    GENX_(__NR_kill,                 sys_kill),                  /*  37 */
    NBDXY(__NR_pipe,                 sys_pipe),                  /*  42 */
@@ -1319,8 +1320,10 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_getpgrp,              sys_getpgrp),               /*  81 */
    GENXY(__NR_dup2,                 sys_dup2),                  /*  90 */
    NBDXY(__NR_fcntl,                sys_fcntl),                 /*  92 */
-   NBDX_(__NR_connect,              sys_connect),               /*  98 */
-   NBDX_(__NR_sendto,               sys_sendto),                /* 133 */
+   GENX_(__NR_connect,              sys_connect),               /*  98 */
+   GENX_(__NR_bind,                 sys_bind),                  /* 104 */
+   GENX_(__NR_listen,               sys_listen),                /* 106 */
+   GENX_(__NR_sendto,               sys_sendto),                /* 133 */
    GENX_(__NR_mkdir,                sys_mkdir),                 /* 136 */
    GENX_(__NR_rmdir,                sys_rmdir),                 /* 137 */
    GENXY(__NR_getrlimit,            sys_getrlimit),             /* 194 */
@@ -1331,6 +1334,7 @@ static SyscallTableEntry syscall_table[] = {
    NBDXY(__NR_sysctl,               sys_sysctl),                /* 202 */
    GENX_(__NR_semget,               sys_semget),                /* 221 */
    GENX_(__NR_semop,                sys_semop),                 /* 222 */
+   NBDXY(__NR__ksem_init,           sys__ksem_init),            /* 247 */
    GENXY(__NR_mq_open,              sys_mq_open),               /* 257 */
    GENXY(__NR_mq_close,             sys_mq_close),              /* 258 */
    GENX_(__NR_mq_unlink,            sys_mq_unlink),             /* 259 */
