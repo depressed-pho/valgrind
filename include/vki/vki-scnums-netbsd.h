@@ -42,6 +42,7 @@
 #define __NR_accept             SYS_accept
 #define __NR_access             SYS_access
 #define __NR_bind               SYS_bind
+#define __NR_break              SYS_break
 #define __NR_chdir              SYS_chdir
 #define __NR_chmod              SYS_chmod
 #define __NR_clock_gettime      SYS___clock_gettime50

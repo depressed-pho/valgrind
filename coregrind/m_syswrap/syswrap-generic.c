@@ -4996,6 +4996,24 @@ POST(sys_recvmsg)
    ML_(generic_POST_sys_recvmsg)(tid, "msg", (struct vki_msghdr *)ARG2, RES);
 }
 
+PRE(sys_getsockname)
+{
+   /* int
+    * getsockname(int s, struct sockaddr * restrict name,
+    *     socklen_t * restrict namelen);
+    */
+   PRINT("sys_getsockname ( %ld, %#lx, %#lx )", SARG1, ARG2, ARG3);
+   PRE_REG_READ3(int, "getsockname",
+                 int, s, struct vki_sockaddr *, name, vki_socklen_t, namelen);
+   ML_(generic_PRE_sys_getsockname)(tid, ARG1, ARG2, ARG3);
+}
+
+POST(sys_getsockname)
+{
+   ML_(generic_POST_sys_getsockname)(tid, VG_(mk_SysRes_Success(RES)),
+                                     ARG1, ARG2, ARG3);
+}
+
 #if defined(HAVE_SYS_SEM_H)
 
 PRE(sys_semget)

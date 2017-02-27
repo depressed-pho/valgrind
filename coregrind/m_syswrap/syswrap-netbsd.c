@@ -429,6 +429,7 @@ void VG_(restore_context)(ThreadId tid, vki_ucontext_t *uc, CorePart part)
 DECL_TEMPLATE(netbsd, sys_syscall);
 DECL_TEMPLATE(netbsd, sys___syscall);
 DECL_TEMPLATE(netbsd, sys_exit);
+DECL_TEMPLATE(netbsd, sys_break);
 DECL_TEMPLATE(netbsd, sys_pipe);
 DECL_TEMPLATE(netbsd, sys_pipe2);
 DECL_TEMPLATE(netbsd, sys_ioctl);
@@ -529,6 +530,28 @@ PRE(sys_exit)
 
    /* We have to claim the syscall already succeeded. */
    SET_STATUS_Success(0);
+}
+
+PRE(sys_break)
+{
+   /* int break(char *nsize);
+    */
+   PRINT("sys_break ( %#lx )", ARG1);
+   PRE_REG_READ1(int, "break", char *, nsize);
+
+   Bool debug = False;
+
+   if (debug)
+      VG_(printf)("\nsys_break: brk_base=%#lx brk_limit=%#lx nsize=%#lx\n",
+                  VG_(brk_base), VG_(brk_limit), ARG1);
+
+   if (0) VG_(am_show_nsegments)(0, "in_break");
+
+   /* On NetBSD the break address is inside libc
+    * (arch/x86_64/sys/sbrk.S) and it surely does not match
+    * VG_(brk_base). I have no idea what to do.
+    */
+   VG_(unimplemented)("Syswrap of the break call.");
 }
 
 PRE(sys_pipe)
@@ -1301,12 +1324,14 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_unlink,               sys_unlink),                /*  10 */
    GENX_(__NR_chdir,                sys_chdir),                 /*  12 */
    GENX_(__NR_chmod,                sys_chmod),                 /*  15 */
+   NBDX_(__NR_break,                sys_break),                 /*  17 */
    GENX_(__NR_getpid,               sys_getpid),                /*  20 */
    GENX_(__NR_getuid,               sys_getuid),                /*  24 */
    GENX_(__NR_geteuid,              sys_geteuid),               /*  25 */
    GENXY(__NR_recvmsg,              sys_recvmsg),               /*  27 */
    GENX_(__NR_sendmsg,              sys_sendmsg),               /*  28 */
    GENXY(__NR_accept,               sys_accept),                /*  30 */
+   GENXY(__NR_getsockname,          sys_getsockname),           /*  32 */
    GENX_(__NR_access,               sys_access),                /*  33 */
    GENX_(__NR_kill,                 sys_kill),                  /*  37 */
    NBDXY(__NR_pipe,                 sys_pipe),                  /*  42 */
@@ -1327,11 +1352,13 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_mkdir,                sys_mkdir),                 /* 136 */
    GENX_(__NR_rmdir,                sys_rmdir),                 /* 137 */
    GENXY(__NR_getrlimit,            sys_getrlimit),             /* 194 */
+   GENX_(__NR_setrlimit,            sys_setrlimit),             /* 194 */
    NBDX_(__NR_mmap,                 sys_mmap),                  /* 197 */
    NBDXY(__NR___syscall,            sys___syscall),             /* 198 */
    NBDX_(__NR_lseek,                sys_lseek),                 /* 199 */
    NBDX_(__NR_ftruncate,            sys_ftruncate),             /* 201 */
    NBDXY(__NR_sysctl,               sys_sysctl),                /* 202 */
+   GENXY(__NR_poll,                 sys_poll),                  /* 209 */
    GENX_(__NR_semget,               sys_semget),                /* 221 */
    GENX_(__NR_semop,                sys_semop),                 /* 222 */
    NBDXY(__NR__ksem_init,           sys__ksem_init),            /* 247 */
