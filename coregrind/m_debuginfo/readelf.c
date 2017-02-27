@@ -1789,8 +1789,21 @@ Bool ML_(read_elf_debug_info) ( struct _DebugInfo* di )
                       && map->size > 0 /* stay sane */
                       && a_phdr.p_offset >= map->foff
                       && a_phdr.p_offset <  map->foff + map->size
-                      && a_phdr.p_offset + a_phdr.p_filesz 
-                         <= map->foff + map->size) {
+#if !defined(VGO_netbsd)
+                         /* On NetBSD data sections can be split into
+                          * two regions. That is, the last page of
+                          * .data may be anonymously mapped and copied
+                          * so the last condition does not always
+                          * meet. See elf_load_psection() in
+                          * sys/kern/exec_elf.c */
+                         /* XXX: Technically this can happen on other
+                          * OSes as well. Kernels are not obligated to
+                          * COW the entire .data and then allocate
+                          * .bss separately. */
+                      && a_phdr.p_offset + a_phdr.p_filesz
+                         <= map->foff + map->size
+#endif
+                      ) {
                      RangeAndBias item;
                      item.svma_base  = a_phdr.p_vaddr;
                      item.svma_limit = a_phdr.p_vaddr + a_phdr.p_memsz;
