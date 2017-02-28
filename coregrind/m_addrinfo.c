@@ -263,25 +263,72 @@ void VG_(describe_addr) ( Addr a, /*OUT*/AddrInfo* ai )
    {
       const NSegment *seg = VG_(am_find_nsegment) (a);
 
-      /* Special case to detect the brk data segment. */
+      /* Special case to detect the brk data segment. There are 4
+       * cases here:
+       *
+       * Case A: All of brk_base, address a, brk_limit is in a single
+       * brk segment. This is the simplest case.
+       *
+       *   |     seg      |  seg  |
+       *   +--------------+-------+
+       *   |  anon (brk)  | resvn |
+       *   +--------------+-------+
+       *   ^    ^     ^
+       *   |    |     |
+       *   |    |     VG_(brk_limit) -- not aligned
+       *   |    address a
+       *   VG_(brk_base) -- page aligned, does not move
+       *
+       * Case A': Similar to the case A but the segment is (possibly)
+       * file mapped for a .data section. Does not happen on Linux.
+       *
+       *   |     seg      |     seg      |  seg  |
+       *   +--------------+--------------+-------+
+       *   | file (.data) |  anon (brk)  | resvn |
+       *   +--------------+--------------+-------+
+       *          ^ ^  ^
+       *          | |  |
+       *          | |  VG_(brk_limit) -- not aligned
+       *          | address a
+       *          VG_(brk_base) -- not aligned, does not move
+       *
+       * Case B: The segment in which the address a resides is
+       * (possibly) file mapped for a .data section. VG_(brk_limit) is
+       * in the next anonymous brk segment. Does not happen on Linux.
+       *
+       *   |     seg      |     seg      |  seg  |
+       *   +--------------+--------------+-------+
+       *   | file (.data) |  anon (brk)  | resvn |
+       *   +--------------+--------------+-------+
+       *          ^   ^       ^
+       *          |   |       |
+       *          |   |       VG_(brk_limit) -- not aligned
+       *          |   address a
+       *          VG_(brk_base) -- not aligned, does not move
+       *
+       * Case C: Similar to the case B but the segment in which the
+       * adddress a resides is an anonymous brk segment. VG_(brk_base)
+       * is in the previous segment which is (possibly) file mapped
+       * for a .data section. Does not happen on Linux.
+       *
+       *   |     seg      |     seg      |  seg  |
+       *   +--------------+--------------+-------+
+       *   | file (.data) |  anon (brk)  | resvn |
+       *   +--------------+--------------+-------+
+       *          ^         ^ ^
+       *          |         | |
+       *          |         | VG_(brk_limit) -- not aligned
+       *          |         address a
+       *          VG_(brk_base) -- not aligned, does not move
+       *
+       */
       if (seg != NULL
-#if defined(VGO_solaris)
-          && (seg->kind == SkAnonC || seg->kind == SkFileC)
-#else
-          && seg->kind == SkAnonC
-#endif /* VGO_solaris */
-          && VG_(brk_limit) >= seg->start
-          && VG_(brk_limit) <= seg->end+1) {
-         /* Address a is in a Anon Client segment which contains
-            VG_(brk_limit). So, this segment is the brk data segment
-            as initimg-linux.c:setup_client_dataseg maps an anonymous
-            segment followed by a reservation, with one reservation
-            page that will never be used by syswrap-generic.c:do_brk,
-            when increasing VG_(brk_limit).
-            So, the brk data segment will never be merged with the
-            next segment, and so an address in that area will
-            either be in the brk data segment, or in the unmapped
-            part of the brk data segment reservation. */
+          && ( seg->kind == SkAnonC || seg->kind == SkFileC )
+          && ( ( VG_(brk_base) <= a && a < VG_(brk_limit) )
+               ||
+               ( VG_(brk_limit)    <= a
+                 && seg->start     <= VG_(brk_limit)
+                 && VG_(brk_limit) <= seg->end+1   ) )) {
          ai->tag = Addr_BrkSegment;
          ai->Addr.BrkSegment.brk_limit = VG_(brk_limit);
          return;
