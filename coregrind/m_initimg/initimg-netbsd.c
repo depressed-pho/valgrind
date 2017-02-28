@@ -1,3 +1,4 @@
+/* -*- mode: C; c-basic-offset: 3; -*- */
 /*--------------------------------------------------------------------*/
 /*--- Startup: create initial process image on NetBSD              ---*/
 /*---                                             initimg-netbsd.c ---*/
@@ -93,8 +94,8 @@ static void load_client ( /*MOD*/ExeInfo* info,
    if (!sr_isError(res))
       VG_(cl_exec_fd) = sr_Res(res);
 
-   /* Copy necessary bits of 'info' that were filled in */
-   VG_(brk_base) = VG_(brk_limit) = VG_PGROUNDUP(info->brkbase);
+   /* Set initial brk values. */
+   VG_(brk_base) = VG_(brk_limit) = info->brkbase;
 }
 
 /*====================================================================*/
@@ -620,64 +621,89 @@ Addr setup_client_stack( void*  init_sp,
    return client_SP;
 }
 
-/* Allocate the client data segment.  It is an expandable anonymous
- * mapping abutting a shrinkable reservation of size max_dseg_size.
- * The data segment starts at VG_(brk_base), which is page-aligned,
- * and runs up to VG_(brk_limit), which isn't. */
+/* Data segment for brk (heap). It is an expandable anonymous mapping
+   abutting a 1-page reservation. The data segment starts at
+   VG_(brk_base) and runs up to VG_(brk_limit). None of these two
+   values have to be page-aligned. Initial data segment is established
+   directly during client program image initialization.
 
-static void setup_client_dataseg ( SizeT max_size )
+   Notable facts:
+   - VG_(brk_base) is not page aligned; does not move
+   - VG_(brk_limit) moves between [VG_(brk_base), data segment end]
+   - data segment end is always page aligned
+   - right after data segment end is 1-page reservation
+
+            |      heap           | 1 page
+     +------+------+--------------+-------+
+     | BSS  | anon |   anon       | resvn |
+     +------+------+--------------+-------+
+
+            ^      ^        ^    ^
+            |      |        |    |
+            |      |        |    data segment end
+            |      |        VG_(brk_limit) -- no alignment constraint
+            |      brk_base_pgup -- page aligned
+            VG_(brk_base) -- not page aligned -- does not move
+
+   Because VG_(brk_base) is not page-aligned and is initially located within
+   pre-established BSS (data) segment, special care has to be taken in the code
+   below to handle this feature.
+
+   Reservation segment is used to protect the data segment merging with
+   a pre-existing segment. This should be no problem because address space
+   manager ensures that requests for client address space are satisfied from
+   the highest available addresses. However when memory is low, data segment
+   can meet with mmap'ed objects and the reservation segment separates these.
+   The page that contains VG_(brk_base) is already allocated by the program's
+   loaded data segment. The break syscall wrapper handles this special case. */
+
+/* Establishes initial data segment for brk (heap). */
+static Bool setup_client_dataseg(void)
 {
-   Bool   ok;
-   SysRes sres;
-   Addr   anon_start  = VG_(brk_base);
-   SizeT  anon_size   = VKI_PAGE_SIZE;
-   Addr   resvn_start = anon_start + anon_size;
-   SizeT  resvn_size  = max_size - anon_size;
+   /* Segment size is initially at least 1 MB and at most 8 MB. */
+   SizeT m1 = 1024 * 1024;
+   SizeT m8 = 8 * m1;
+   SizeT initial_size = VG_(client_rlimit_data).rlim_cur;
+   VG_(debugLog)(1, "initimg", "Setup client data (brk) segment "
+                               "at %#lx\n", VG_(brk_base));
+   if (initial_size < m1)
+      initial_size = m1;
+   if (initial_size > m8)
+      initial_size = m8;
+   initial_size = VG_PGROUNDUP(initial_size);
+
+   Addr anon_start = VG_PGROUNDUP(VG_(brk_base));
+   SizeT anon_size = VG_PGROUNDUP(initial_size);
+   Addr resvn_start = anon_start + anon_size;
+   SizeT resvn_size = VKI_PAGE_SIZE;
 
    vg_assert(VG_IS_PAGE_ALIGNED(anon_size));
    vg_assert(VG_IS_PAGE_ALIGNED(resvn_size));
    vg_assert(VG_IS_PAGE_ALIGNED(anon_start));
    vg_assert(VG_IS_PAGE_ALIGNED(resvn_start));
-
-   /* Because there's been no brk activity yet: */
    vg_assert(VG_(brk_base) == VG_(brk_limit));
 
-   /* Try to create the data seg and associated reservation where
+   /* Find the loaded data segment and remember its protection. */
+   const NSegment *seg = VG_(am_find_nsegment)(VG_(brk_base) - 1);
+   vg_assert(seg != NULL);
+   UInt prot = (seg->hasR ? VKI_PROT_READ : 0)
+             | (seg->hasW ? VKI_PROT_WRITE : 0)
+             | (seg->hasX ? VKI_PROT_EXEC : 0);
+
+   /* Try to create the data segment and associated reservation where
       VG_(brk_base) says. */
-   ok = VG_(am_create_reservation)(
-           resvn_start,
-           resvn_size,
-           SmLower,
-           anon_size
-        );
-
+   Bool ok = VG_(am_create_reservation)(resvn_start, resvn_size, SmLower,
+                                        anon_size);
    if (!ok) {
-      /* Hmm, that didn't work.  Well, let aspacem suggest an address
-         it likes better, and try again with that. */
-      anon_start = VG_(am_get_advisory_client_simple)
-                      ( 0/*floating*/, anon_size+resvn_size, &ok );
-      if (ok) {
-         resvn_start = anon_start + anon_size;
-         ok = VG_(am_create_reservation)(
-                 resvn_start,
-                 resvn_size,
-                 SmLower,
-                 anon_size
-              );
-         if (ok)
-            VG_(brk_base) = VG_(brk_limit) = anon_start;
-      }
-      /* that too might have failed, but if it has, we're hosed: there
-         is no Plan C. */
+      /* That didn't work, we're hosed. */
+      return False;
    }
-   vg_assert(ok);
 
-   /* Map the data segment (heap). We don't make it executable as the
-    * kernel doesn't do it. */
-   UInt prot = VKI_PROT_READ | VKI_PROT_WRITE;
-   sres = VG_(am_mmap_anon_fixed_client)(anon_start, anon_size, prot);
+   /* Map the data segment. */
+   SysRes sres = VG_(am_mmap_anon_fixed_client)(anon_start, anon_size, prot);
    vg_assert(!sr_isError(sres));
    vg_assert(sr_Res(sres) == anon_start);
+   return True;
 }
 
 /*====================================================================*/
@@ -772,15 +798,10 @@ IIFinaliseImageInfo VG_(ii_create_image)(IICreateImageInfo iicii,
    //     p: load_client()     [for 'info' and hence VG_(brk_base)]
    //--------------------------------------------------------------
    {
-      SizeT m1 = 1024 * 1024;
-      SizeT m8 = 8 * m1;
-      SizeT dseg_max_size = (SizeT)VG_(client_rlimit_data).rlim_cur;
-      VG_(debugLog)(1, "initimg", "Setup client data (brk) segment\n");
-      if (dseg_max_size < m1) dseg_max_size = m1;
-      if (dseg_max_size > m8) dseg_max_size = m8;
-      dseg_max_size = VG_PGROUNDUP(dseg_max_size);
-
-      setup_client_dataseg( dseg_max_size );
+      if (!setup_client_dataseg()) {
+         VG_(printf)("valgrind: cannot initialize data segment (brk).\n");
+         VG_(exit)(1);
+      }
    }
 
    VG_(free)(info.interp_name); info.interp_name = NULL;
@@ -834,9 +855,10 @@ void VG_(ii_finalise_image)( IIFinaliseImageInfo iifii )
 
    /* Tell the tool about the client data segment and then kill it which will
     * make it inaccessible/unaddressable. */
-   const NSegment *seg = VG_(am_find_nsegment)(VG_(brk_base));
+   const NSegment *seg = VG_(am_find_nsegment)(VG_PGROUNDUP(VG_(brk_base)));
    vg_assert(seg);
    vg_assert(seg->kind == SkAnonC);
+
    VG_TRACK(new_mem_brk, VG_(brk_base), seg->end + 1 - VG_(brk_base),
             1/*tid*/);
    VG_TRACK(die_mem_brk, VG_(brk_base), seg->end + 1 - VG_(brk_base));

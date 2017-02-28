@@ -39,6 +39,7 @@
 //--------------------------------------------------------------------
 
 #include "pub_tool_clientstate.h"
+#include "pub_core_vki.h" // struct vki_rlimit
 
 // Address space globals
 

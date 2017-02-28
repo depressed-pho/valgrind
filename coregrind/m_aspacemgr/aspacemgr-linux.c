@@ -306,7 +306,7 @@ static Int      nsegments_used = 0;
 
 
 Addr VG_(clo_aspacem_minAddr)
-#if defined(VGO_linux) || defined(VGO_netbsd)
+#if defined(VGO_linux)
    = (Addr) 0x04000000; // 64M
 #elif defined(VGO_darwin)
 # if VG_WORDSIZE == 4
@@ -314,7 +314,7 @@ Addr VG_(clo_aspacem_minAddr)
 # else
    = (Addr) 0x100000000;  // 4GB page zero
 # endif
-#elif defined(VGO_solaris)
+#elif defined(VGO_solaris) || defined(VGO_netbsd)
    = (Addr) 0x00100000; // 1MB
 #else
 #endif

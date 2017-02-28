@@ -542,16 +542,206 @@ PRE(sys_break)
    Bool debug = False;
 
    if (debug)
-      VG_(printf)("\nsys_break: brk_base=%#lx brk_limit=%#lx nsize=%#lx\n",
-                  VG_(brk_base), VG_(brk_limit), ARG1);
+      VG_(printf)("\nsys_break: old brk_limit=%#lx old brk_base=%#lx new_brk=%#lx\n",
+                  VG_(brk_limit), VG_(brk_base), ARG1);
 
    if (0) VG_(am_show_nsegments)(0, "in_break");
 
-   /* On NetBSD the break address is inside libc
-    * (arch/x86_64/sys/sbrk.S) and it surely does not match
-    * VG_(brk_base). I have no idea what to do.
-    */
-   VG_(unimplemented)("Syswrap of the break call.");
+   Addr old_brk_limit = VG_(brk_limit);
+   /* If VG_(brk_base) is page-aligned then old_brk_base_pgup is equal to
+      VG_(brk_base). */
+   Addr old_brk_base_pgup = VG_PGROUNDUP(VG_(brk_base));
+   Addr new_brk = ARG1;
+   const NSegment *seg, *seg2;
+
+   /* Handle some trivial cases. */
+   if (new_brk == old_brk_limit) {
+      SET_STATUS_Success(0);
+      return;
+   }
+   if (new_brk < VG_(brk_base)) {
+      /* Clearly impossible. */
+      SET_STATUS_Failure(VKI_ENOMEM);
+      return;
+   }
+   if (new_brk - VG_(brk_base) > VG_(client_rlimit_data).rlim_cur) {
+      SET_STATUS_Failure(VKI_ENOMEM);
+      return;
+   }
+
+   /* The brk base and limit must have been already set. */
+   vg_assert(VG_(brk_base) != -1);
+   vg_assert(VG_(brk_limit) != -1);
+
+   if (new_brk < old_brk_limit) {
+      /* Shrinking the data segment.  Be lazy and don't munmap the excess
+         area. */
+      if (old_brk_limit > old_brk_base_pgup) {
+         /* Calculate new local brk (=MAX(new_brk, old_brk_base_pgup)). */
+         Addr new_brk_local;
+         if (new_brk < old_brk_base_pgup)
+            new_brk_local = old_brk_base_pgup;
+         else
+            new_brk_local = new_brk;
+
+         /* Find a segment at the beginning and at the end of the shrinked
+            range. */
+         seg = VG_(am_find_nsegment)(new_brk_local);
+         seg2 = VG_(am_find_nsegment)(old_brk_limit - 1);
+         vg_assert(seg);
+         vg_assert(seg->kind == SkAnonC);
+         vg_assert(seg2);
+         vg_assert(seg == seg2);
+
+         /* Discard any translations and zero-out the area. */
+         if (seg->hasT)
+            VG_(discard_translations)(new_brk_local,
+                                      old_brk_limit - new_brk_local,
+                                      "do_brk(shrink)");
+        /* Since we're being lazy and not unmapping pages, we have to zero out
+           the area, so that if the area later comes back into circulation, it
+           will be filled with zeroes, as if it really had been unmapped and
+           later remapped.  Be a bit paranoid and try hard to ensure we're not
+           going to segfault by doing the write - check that segment is
+           writable. */
+         if (seg->hasW)
+            VG_(memset)((void*)new_brk_local, 0, old_brk_limit - new_brk_local);
+      }
+
+      /* Fixup code if the VG_(brk_base) is not page-aligned. */
+      if (new_brk < old_brk_base_pgup) {
+         /* Calculate old local brk (=MIN(old_brk_limit, old_brk_base_up)). */
+         Addr old_brk_local;
+         if (old_brk_limit < old_brk_base_pgup)
+            old_brk_local = old_brk_limit;
+         else
+            old_brk_local = old_brk_base_pgup;
+
+         /* Find a segment at the beginning and at the end of the shrinked
+            range. */
+         seg = VG_(am_find_nsegment)(new_brk);
+         seg2 = VG_(am_find_nsegment)(old_brk_local - 1);
+         vg_assert(seg);
+         vg_assert(seg2);
+         vg_assert(seg == seg2);
+
+         /* Discard any translations and zero-out the area. */
+         if (seg->hasT)
+            VG_(discard_translations)(new_brk, old_brk_local - new_brk,
+                                      "do_brk(shrink)");
+         if (seg->hasW)
+            VG_(memset)((void*)new_brk, 0, old_brk_local - new_brk);
+      }
+
+      /* We are done, update VG_(brk_limit), tell the tool about the changes,
+         and leave. */
+      VG_(brk_limit) = new_brk;
+      VG_TRACK(die_mem_brk, new_brk, old_brk_limit - new_brk);
+      SET_STATUS_Success(0);
+      return;
+   }
+
+   /* We are expanding the brk segment. */
+
+   /* Fixup code if the VG_(brk_base) is not page-aligned. */
+   if (old_brk_limit < old_brk_base_pgup) {
+      /* Calculate new local brk (=MIN(new_brk, old_brk_base_pgup)). */
+      Addr new_brk_local;
+      if (new_brk < old_brk_base_pgup)
+         new_brk_local = new_brk;
+      else
+         new_brk_local = old_brk_base_pgup;
+
+      /* Find a segment at the beginning and at the end of the expanded
+         range. */
+      seg = VG_(am_find_nsegment)(old_brk_limit);
+      seg2 = VG_(am_find_nsegment)(new_brk_local - 1);
+      vg_assert(seg);
+      vg_assert(seg2);
+      vg_assert(seg == seg2);
+
+      /* Nothing else to do. */
+   }
+
+   if (new_brk > old_brk_base_pgup) {
+      /* Calculate old local brk (=MAX(old_brk_limit, old_brk_base_pgup)). */
+      Addr old_brk_local;
+      if (old_brk_limit < old_brk_base_pgup)
+         old_brk_local = old_brk_base_pgup;
+      else
+         old_brk_local = old_brk_limit;
+
+      /* Find a segment at the beginning of the expanded range. */
+      if (old_brk_local > old_brk_base_pgup)
+         seg = VG_(am_find_nsegment)(old_brk_local - 1);
+      else
+         seg = VG_(am_find_nsegment)(old_brk_local);
+      vg_assert(seg);
+      vg_assert(seg->kind == SkAnonC);
+
+      /* Find the 1-page reservation segment. */
+      seg2 = VG_(am_next_nsegment)(seg, True/*forwards*/);
+      vg_assert(seg2);
+      vg_assert(seg2->kind == SkResvn);
+      vg_assert(seg->end + 1 == seg2->start);
+      vg_assert(seg2->end - seg2->start + 1 == VKI_PAGE_SIZE);
+
+      if (new_brk <= seg2->start) {
+         /* Still fits within the existing anon segment, nothing to do. */
+      } else {
+         /* Data segment limit was already checked. */
+         Addr anon_start = seg->end + 1;
+         Addr resvn_start = VG_PGROUNDUP(new_brk);
+         SizeT anon_size = resvn_start - anon_start;
+         SizeT resvn_size = VKI_PAGE_SIZE;
+         SysRes sres;
+
+         vg_assert(VG_IS_PAGE_ALIGNED(anon_size));
+         vg_assert(VG_IS_PAGE_ALIGNED(resvn_size));
+         vg_assert(VG_IS_PAGE_ALIGNED(anon_start));
+         vg_assert(VG_IS_PAGE_ALIGNED(resvn_start));
+         vg_assert(anon_size > 0);
+
+         /* Address space manager checks for free address space for us;
+            reservation would not be otherwise created. */
+         Bool ok = VG_(am_create_reservation)(resvn_start, resvn_size, SmLower,
+                                              anon_size);
+         if (!ok) {
+            VG_(umsg)("brk segment overflow in thread #%d: can't grow "
+                      "to %#lx\n", tid, new_brk);
+            SET_STATUS_Failure(VKI_ENOMEM);
+            return;
+         }
+
+         /* Establish protection from the existing segment. */
+         UInt prot = (seg->hasR ? VKI_PROT_READ : 0)
+                     | (seg->hasW ? VKI_PROT_WRITE : 0)
+                     | (seg->hasX ? VKI_PROT_EXEC : 0);
+
+         /* Address space manager will merge old and new data segments. */
+         sres = VG_(am_mmap_anon_fixed_client)(anon_start, anon_size, prot);
+         if (sr_isError(sres)) {
+            VG_(umsg)("Cannot map memory to grow brk segment in thread #%d "
+                      "to %#lx\n", tid, new_brk);
+            SET_STATUS_Failure(VKI_ENOMEM);
+            return;
+         }
+         vg_assert(sr_Res(sres) == anon_start);
+
+         seg = VG_(am_find_nsegment)(old_brk_base_pgup);
+         seg2 = VG_(am_find_nsegment)(VG_PGROUNDUP(new_brk) - 1);
+         vg_assert(seg);
+         vg_assert(seg2);
+         vg_assert(seg == seg2);
+         vg_assert(new_brk <= seg->end + 1);
+      }
+   }
+
+   /* We are done, update VG_(brk_limit), tell the tool about the changes, and
+      leave. */
+   VG_(brk_limit) = new_brk;
+   VG_TRACK(new_mem_brk, old_brk_limit, new_brk - old_brk_limit, tid);
+   SET_STATUS_Success(0);
 }
 
 PRE(sys_pipe)
