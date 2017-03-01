@@ -4979,6 +4979,27 @@ PRE(sys_sendmsg)
    ML_(generic_PRE_sys_sendmsg)(tid, "msg", (struct vki_msghdr *)ARG2);
 }
 
+PRE(sys_recvfrom)
+{
+   /* ssize_t
+    * recvfrom(int s, void * restrict buf, size_t len, int flags,
+    *     struct sockaddr * restrict from, socklen_t * restrict fromlen);
+    */
+   *flags |= SfMayBlock;
+   PRINT("sys_recvfrom ( %ld, %#lx, %lu, %ld, %#lx, %#lx )",
+         SARG1, ARG2, ARG3, SARG4, ARG5, ARG6);
+   PRE_REG_READ6(vki_ssize_t, "recvfrom",
+                 int, s, void *, buf, vki_size_t, len, int, flags,
+                 struct vki_sockaddr *, from, vki_socklen_t *, fromlen);
+   ML_(generic_PRE_sys_recvfrom)(tid, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6);
+}
+
+POST(sys_recvfrom)
+{
+   ML_(generic_POST_sys_recvfrom)(tid, VG_(mk_SysRes_Success)(RES),
+                                  ARG1, ARG2, ARG3, ARG4, ARG5, ARG6);
+}
+
 PRE(sys_recvmsg)
 {
    /* ssize_t
@@ -5012,6 +5033,29 @@ POST(sys_getsockname)
 {
    ML_(generic_POST_sys_getsockname)(tid, VG_(mk_SysRes_Success(RES)),
                                      ARG1, ARG2, ARG3);
+}
+
+PRE(sys_getsockopt)
+{
+   /* int
+    * getsockopt(int s, int level, int optname, void * restrict optval,
+    *     socklen_t * restrict optlen);
+    */
+   PRINT("sys_getsockopt ( %ld, %ld, %ld, %#lx, %#lx )",
+         SARG1, SARG2, SARG3, ARG4, ARG5);
+   PRE_REG_READ5(int, "getsockopt",
+                 int, s, int, level, int, optname, void *, optval,
+                 vki_socklen_t *, optlen);
+   if (ARG4)
+      ML_(buf_and_len_pre_check)(tid, ARG4, ARG5, "getsockopt(optval)",
+                                 "getsockopt(optlen)");
+}
+
+POST(sys_getsockopt)
+{
+   if (ARG4)
+      ML_(buf_and_len_post_check)(tid, VG_(mk_SysRes_Success)(RES), ARG4,
+                                  ARG5, "getsockopt(optlen_out)");
 }
 
 #if defined(HAVE_SYS_SEM_H)

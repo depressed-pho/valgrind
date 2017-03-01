@@ -120,6 +120,7 @@
 #define __NR_ptrace             SYS_ptrace
 #define __NR_read               SYS_read
 #define __NR_readlink           SYS_readlink
+#define __NR_recvfrom           SYS_recvfrom
 #define __NR_recvmsg            SYS_recvmsg
 #define __NR_rename             SYS_rename
 #define __NR_rmdir              SYS_rmdir

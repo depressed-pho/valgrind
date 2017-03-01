@@ -44,6 +44,7 @@
 #include "pub_core_signals.h"
 #include "pub_core_syscall.h"
 #include "pub_core_syswrap.h"
+#include "pub_core_transtab.h"
 #include "pub_core_vki.h"
 #include "pub_core_vkiscnums.h"
 
@@ -1537,6 +1538,7 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_geteuid,              sys_geteuid),               /*  25 */
    GENXY(__NR_recvmsg,              sys_recvmsg),               /*  27 */
    GENX_(__NR_sendmsg,              sys_sendmsg),               /*  28 */
+   GENXY(__NR_recvfrom,             sys_recvfrom),              /*  29 */
    GENXY(__NR_accept,               sys_accept),                /*  30 */
    GENXY(__NR_getsockname,          sys_getsockname),           /*  32 */
    GENX_(__NR_access,               sys_access),                /*  33 */
@@ -1555,6 +1557,7 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_connect,              sys_connect),               /*  98 */
    GENX_(__NR_bind,                 sys_bind),                  /* 104 */
    GENX_(__NR_listen,               sys_listen),                /* 106 */
+   GENXY(__NR_getsockopt,           sys_getsockopt),            /* 118 */
    GENX_(__NR_sendto,               sys_sendto),                /* 133 */
    GENX_(__NR_mkdir,                sys_mkdir),                 /* 136 */
    GENX_(__NR_rmdir,                sys_rmdir),                 /* 137 */
