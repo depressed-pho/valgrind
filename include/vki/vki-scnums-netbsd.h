@@ -77,6 +77,8 @@
 #define __NR_issetugid          SYS_issetugid
 #define __NR_kill               SYS_kill
 #define __NR__ksem_init         SYS__ksem_init
+#define __NR__ksem_post         SYS__ksem_post
+#define __NR__ksem_wait         SYS__ksem_wait
 #define __NR_listen             SYS_listen
 #define __NR_lseek              SYS_lseek
 #define __NR_lwp_create         SYS__lwp_create

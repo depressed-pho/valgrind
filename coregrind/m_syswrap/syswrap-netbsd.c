@@ -439,6 +439,8 @@ DECL_TEMPLATE(netbsd, sys_lseek);
 DECL_TEMPLATE(netbsd, sys_ftruncate);
 DECL_TEMPLATE(netbsd, sys_sysctl);
 DECL_TEMPLATE(netbsd, sys__ksem_init);
+DECL_TEMPLATE(netbsd, sys__ksem_post);
+DECL_TEMPLATE(netbsd, sys__ksem_wait);
 DECL_TEMPLATE(netbsd, sys_minherit);
 DECL_TEMPLATE(netbsd, sys_issetugid);
 DECL_TEMPLATE(netbsd, sys_getcontext);
@@ -1057,6 +1059,21 @@ POST(sys__ksem_init)
    POST_MEM_WRITE(ARG2, sizeof(intptr_t));
 }
 
+PRE(sys__ksem_post)
+{
+   /* int _ksem_post(intptr_t id); */
+   PRINT("sys__ksem_post ( %#lx )", ARG1);
+   PRE_REG_READ1(int, "_ksem_post", intptr_t, id);
+}
+
+PRE(sys__ksem_wait)
+{
+   /* int _ksem_wait(intptr_t id); */
+   *flags |= SfMayBlock;
+   PRINT("sys__ksem_wait ( %#lx )", ARG1);
+   PRE_REG_READ1(int, "_ksem_wait", intptr_t, id);
+}
+
 PRE(sys_minherit)
 {
    /* int minherit(void *addr, size_t len, int inherit); */
@@ -1552,6 +1569,8 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_semget,               sys_semget),                /* 221 */
    GENX_(__NR_semop,                sys_semop),                 /* 222 */
    NBDXY(__NR__ksem_init,           sys__ksem_init),            /* 247 */
+   NBDX_(__NR__ksem_post,           sys__ksem_post),            /* 251 */
+   NBDX_(__NR__ksem_wait,           sys__ksem_wait),            /* 252 */
    GENXY(__NR_mq_open,              sys_mq_open),               /* 257 */
    GENXY(__NR_mq_close,             sys_mq_close),              /* 258 */
    GENX_(__NR_mq_unlink,            sys_mq_unlink),             /* 259 */
