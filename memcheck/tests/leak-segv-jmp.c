@@ -233,6 +233,31 @@ asm(
 ".previous\n"
 );
 
+#elif defined(VGP_amd64_netbsd)
+extern ULong
+do_syscall_WRK(UWord a1, UWord a2, UWord a3,
+               UWord a4, UWord a5, UWord a6,
+               UWord a7, UWord a8,
+               UWord syscall_no,
+               UInt *errflag);
+__asm__ (
+   ".text\n"
+   ".globl do_syscall_WRK\n"
+   ".type  do_syscall_WRK, @function\n"
+   "do_syscall_WRK:\n"
+   "       movq    %rcx, %r10\n"     /* pass %rcx in %r10 instead */
+   "       movq    32(%rsp), %rcx\n" /* *errflag = 0; assume syscall success */
+   "       movq    $0, (%rcx)\n"
+   "       movq    24(%rsp), %rax\n" /* %rax = syscall_no */
+   "       syscall\n"
+   "       jnc     1f\n"             /* goto 1 if success */
+   "       movq    32(%rsp), %rcx\n" /* *errflag = 1 */
+   "       movl    $1, (%rcx)\n"
+   "1:     ret\n"
+   ".size do_syscall_WRK, . - do_syscall_WRK\n"
+   ".previous\n"
+);
+
 #else
 // Ensure the file compiles even if the syscall nr is not defined.
 #ifndef __NR_mprotect
@@ -253,33 +278,33 @@ UWord do_syscall_WRK (UWord syscall_no,
 char **b10;
 char *interior_ptrs[3];
 int mprotect_result = 0;
-static void non_simd_mprotect (long tid, void* addr, long len)
+static int non_simd_mprotect (long tid, void* addr, long len)
 {
-#if defined(VGP_x86_solaris) || defined(VGP_amd64_solaris)
+   int res;
+#if defined(VGO_solaris) || defined(VGO_netbsd)
    UInt err = 0;
-   mprotect_result = do_syscall_WRK((UWord) addr, len, PROT_NONE,
-                                    0, 0, 0, 0, 0, SYS_mprotect, 
-                                    &err);
+   res = do_syscall_WRK((UWord) addr, len, PROT_NONE,
+                        0, 0, 0, 0, 0, SYS_mprotect,
+                        &err);
    if (err)
-      mprotect_result = -1;
+      res = -1;
 #else
-   mprotect_result = do_syscall_WRK(__NR_mprotect,
-                                    (UWord) addr, len, PROT_NONE,
-                                    0, 0, 0);
+   res = do_syscall_WRK(__NR_mprotect,
+                        (UWord) addr, len, PROT_NONE,
+                        0, 0, 0);
 #endif
+   return res;
 }
 
 // can this work without global variable for return value?
-static void my_mprotect_none(void* addr, long len)
+static int my_mprotect_none(void* addr, long len)
 {
    if (RUNNING_ON_VALGRIND)
-     (void) VALGRIND_NON_SIMD_CALL2(non_simd_mprotect,
-                                    addr,
-                                    len);
+      return VALGRIND_NON_SIMD_CALL2(non_simd_mprotect,
+                                     addr,
+                                     len);
    else
-      mprotect_result = mprotect(addr,
-                                 len,
-                                 PROT_NONE);
+      return mprotect(addr, len, PROT_NONE);
 }
 
 void f(void)
@@ -319,15 +344,18 @@ void f(void)
    pagesize = sysconf(_SC_PAGE_SIZE);
    if (pagesize == -1)
       perror ("sysconf failed");
-   
-   my_mprotect_none((void*) RNDPAGEDOWN(&b10[4000]), 2 * pagesize);
+
+   int mprotect_result;
+   mprotect_result =
+       my_mprotect_none((void*) RNDPAGEDOWN(&b10[4000]), 2 * pagesize);
    fprintf(stderr, "mprotect result %d\n", mprotect_result);
 
    fprintf(stderr, "expecting a leak again\n");
    fflush(stderr);
    VALGRIND_DO_LEAK_CHECK;
 
-   my_mprotect_none((void*) RNDPAGEDOWN(&b10[0]),
+   mprotect_result =
+       my_mprotect_none((void*) RNDPAGEDOWN(&b10[0]),
                                  RNDPAGEDOWN(&(b10[nr_ptr-1]))
                                  - RNDPAGEDOWN(&(b10[0])));
    fprintf(stderr, "full mprotect result %d\n", mprotect_result);
@@ -350,8 +378,9 @@ void f(void)
    // Inner pointer after a size: triggers the newarray heuristics.
    interior_ptrs[0] += sizeof(size_t);
 
-   my_mprotect_none( (void*) RNDPAGEDOWN((interior_ptrs[0] - sizeof(size_t))),
-                     RNDPAGEDOWN(nr_ptr * sizeof(char*)));
+   mprotect_result =
+       my_mprotect_none( (void*) RNDPAGEDOWN((interior_ptrs[0] - sizeof(size_t))),
+                         RNDPAGEDOWN(nr_ptr * sizeof(char*)));
    fprintf(stderr, "mprotect result %d\n", mprotect_result);
 
    fprintf(stderr, "expecting heuristic not to crash after full mprotect\n");
