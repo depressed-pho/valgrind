@@ -39,6 +39,7 @@
 #include "pub_core_libcprint.h"
 #include "pub_core_libcproc.h"
 #include "pub_core_machine.h"
+#include "pub_core_mallocfree.h"
 #include "pub_core_options.h"
 #include "pub_core_scheduler.h"
 #include "pub_core_signals.h"
@@ -455,6 +456,7 @@ DECL_TEMPLATE(netbsd, sys_lwp_setprivate);
 DECL_TEMPLATE(netbsd, sys_lwp_kill);
 DECL_TEMPLATE(netbsd, sys_lwp_unpark);
 DECL_TEMPLATE(netbsd, sys_lwp_unpark_all);
+DECL_TEMPLATE(netbsd, sys_lwp_setname);
 DECL_TEMPLATE(netbsd, sys_lwp_ctl);
 DECL_TEMPLATE(netbsd, sys_sched_yield);
 DECL_TEMPLATE(netbsd, sys_sigaction_sigtramp);
@@ -1351,6 +1353,29 @@ PRE(sys_lwp_unpark_all)
       PRE_MEM_READ("_lwp_unpark_all(targets)", ARG1, ARG2 * sizeof(vki_lwpid_t));
 }
 
+PRE(sys_lwp_setname)
+{
+   /* int
+    * _lwp_setname(lwpid_t target, const char *name);
+    */
+   PRINT("sys_lwp_setname ( %lu, %#lx(%s) )", ARG1, ARG2, (HChar*)ARG2);
+   PRE_REG_READ2(int, "_lwp_setname",
+                 vki_lwpid_t, target, const char *, name);
+   PRE_MEM_RASCIIZ("_lwp_setname(name)", ARG2);
+}
+
+POST(sys_lwp_setname)
+{
+   if (ARG2) {
+      const char *name = (const char *)ARG2;
+      ThreadState *tst = VG_(get_ThreadState)(tid);
+
+      tst->thread_name = VG_(realloc)("syswrap._lwp_setname",
+                                      tst->thread_name, VG_(strlen)(name) + 1);
+      VG_(strcpy)(tst->thread_name, name);
+   }
+}
+
 PRE(sys_lwp_ctl)
 {
    /* int
@@ -1583,6 +1608,7 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_mq_send,              sys_mq_send),               /* 263 */
    GENXY(__NR_mq_receive,           sys_mq_receive),            /* 264 */
    NBDX_(__NR_minherit,             sys_minherit),              /* 273 */
+   GENXY(__NR_sigaltstack,          sys_sigaltstack),           /* 281 */
    GENX_(__NR_vfork,                sys_vfork),                 /* 282 */
    GENXY(__NR_sigprocmask,          sys_sigprocmask),           /* 293 */
    GENX_(__NR_sigsuspend,           sys_sigsuspend),            /* 294 */
@@ -1599,6 +1625,7 @@ static SyscallTableEntry syscall_table[] = {
    NBDX_(__NR_lwp_kill,             sys_lwp_kill),              /* 318 */
    NBDX_(__NR_lwp_unpark,           sys_lwp_unpark),            /* 321 */
    NBDX_(__NR_lwp_unpark_all,       sys_lwp_unpark_all),        /* 322 */
+   NBDXY(__NR_lwp_setname,          sys_lwp_setname),           /* 323 */
    NBDXY(__NR_lwp_ctl,              sys_lwp_ctl),               /* 325 */
    NBDXY(__NR_sigaction_sigtramp,   sys_sigaction_sigtramp),    /* 340 */
    NBDX_(__NR_sched_yield,          sys_sched_yield),           /* 350 */

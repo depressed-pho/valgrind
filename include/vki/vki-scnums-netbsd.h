@@ -88,6 +88,7 @@
 #define __NR_lwp_kill           SYS__lwp_kill
 #define __NR_lwp_park           SYS____lwp_park60
 #define __NR_lwp_self           SYS__lwp_self
+#define __NR_lwp_setname        SYS__lwp_setname
 #define __NR_lwp_setprivate     SYS__lwp_setprivate
 #define __NR_lwp_unpark         SYS__lwp_unpark
 #define __NR_lwp_unpark_all     SYS__lwp_unpark_all
@@ -137,6 +138,7 @@
 #define __NR_setsockopt         SYS_setsockopt
 #define __NR_shmctl             SYS___shmctl50
 #define __NR_sigaction_sigtramp SYS___sigaction_sigtramp
+#define __NR_sigaltstack        SYS___sigaltstack14
 #define __NR_sigprocmask        SYS___sigprocmask14
 #define __NR_sigsuspend         SYS___sigsuspend14
 #define __NR_sigtimedwait       SYS_____sigtimedwait50
