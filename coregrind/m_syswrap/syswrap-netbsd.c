@@ -1583,6 +1583,8 @@ static SyscallTableEntry syscall_table[] = {
    GENX_(__NR_bind,                 sys_bind),                  /* 104 */
    GENX_(__NR_listen,               sys_listen),                /* 106 */
    GENXY(__NR_getsockopt,           sys_getsockopt),            /* 118 */
+   GENXY(__NR_readv,                sys_readv),                 /* 120 */
+   GENX_(__NR_writev,               sys_writev),                /* 121 */
    GENX_(__NR_sendto,               sys_sendto),                /* 133 */
    GENX_(__NR_mkdir,                sys_mkdir),                 /* 136 */
    GENX_(__NR_rmdir,                sys_rmdir),                 /* 137 */

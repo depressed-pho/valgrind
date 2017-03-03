@@ -121,6 +121,7 @@
 #define __NR_ptrace             SYS_ptrace
 #define __NR_read               SYS_read
 #define __NR_readlink           SYS_readlink
+#define __NR_readv              SYS_readv
 #define __NR_recvfrom           SYS_recvfrom
 #define __NR_recvmsg            SYS_recvmsg
 #define __NR_rename             SYS_rename
@@ -151,5 +152,6 @@
 #define __NR_vfork              SYS___vfork14
 #define __NR_wait4              SYS___wait450
 #define __NR_write              SYS_write
+#define __NR_writev             SYS_writev
 
 #endif
