@@ -223,6 +223,8 @@ DECL_TEMPLATE(generic, sys_recvfrom);     // 4.2BSD
 DECL_TEMPLATE(generic, sys_recvmsg);      // 4.2BSD
 DECL_TEMPLATE(generic, sys_getsockname);  // 4.2BSD
 DECL_TEMPLATE(generic, sys_getsockopt);   // 4.2BSD
+DECL_TEMPLATE(generic, sys_setsockopt);   // 4.2BSD
+DECL_TEMPLATE(generic, sys_socketpair);   // 4.2BSD
 
 // May not be generic for every architecture under Linux.
 DECL_TEMPLATE(generic, sys_sigaction);             // (x86) P

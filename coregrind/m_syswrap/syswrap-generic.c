@@ -5058,6 +5058,37 @@ POST(sys_getsockopt)
                                   ARG5, "getsockopt(optlen_out)");
 }
 
+PRE(sys_setsockopt)
+{
+   /* int
+    * setsockopt(int s, int level, int optname, const void *optval,
+    *     socklen_t optlen);
+    */
+   PRINT("sys_setsockopt ( %ld, %ld, %ld, %#lx, %lu )",
+         SARG1, SARG2, SARG3, ARG4, ARG5);
+   PRE_REG_READ5(int, "setsockopt", int, s, int, level, int, optname,
+                 const void *, optval, vki_socklen_t, optlen);
+   ML_(generic_PRE_sys_setsockopt)(tid, ARG1, ARG2, ARG3, ARG4, ARG5);
+}
+
+PRE(sys_socketpair)
+{
+   /* int
+    * socketpair(int d, int type, int protocol, int *sv);
+    */
+   PRINT("sys_socketpair ( %ld, %ld, %ld, %#lx )",
+         SARG1, SARG2, SARG3, ARG4);
+   PRE_REG_READ4(int, "socketpair",
+                 int, d, int, type, int, protocol, int *, sv);
+   ML_(generic_PRE_sys_socketpair)(tid, ARG1, ARG2, ARG3, ARG4);
+}
+
+POST(sys_socketpair)
+{
+   ML_(generic_POST_sys_socketpair)(tid, VG_(mk_SysRes_Success)(RES),
+                                    ARG1, ARG2, ARG3, ARG4);
+}
+
 #if defined(HAVE_SYS_SEM_H)
 
 PRE(sys_semget)

@@ -144,6 +144,7 @@
 #define __NR_sigsuspend         SYS___sigsuspend14
 #define __NR_sigtimedwait       SYS_____sigtimedwait50
 #define __NR_socket             SYS___socket30
+#define __NR_socketpair         SYS_socketpair
 #define __NR_stat               SYS___stat50
 #define __NR_syscall            SYS_syscall
 #define __NR___syscall          SYS___syscall
