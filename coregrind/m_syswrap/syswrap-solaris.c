@@ -1704,7 +1704,7 @@ static Bool handle_psinfo_open(SyscallStatus *status,
    return True;
 }
 
-#if defined(SOLARIS_PROC_CMDLINE)
+#if defined(HAVE_PROC_SELF_CMDLINE)
 /* Handles the case where the open is of /proc/self/cmdline or
    /proc/<pid>/cmdline. Just give it a copy of VG_(cl_cmdline_fd) for the
    fake file we cooked up at startup (in m_main).  Also, seek the
@@ -1730,7 +1730,7 @@ static Bool handle_cmdline_open(SyscallStatus *status, const HChar *filename)
 
    return True;
 }
-#endif /* SOLARIS_PROC_CMDLINE */
+#endif /* HAVE_PROC_SELF_CMDLINE */
 
 
 #if defined(SOLARIS_OLD_SYSCALLS)
@@ -4201,10 +4201,10 @@ PRE(sys_openat)
                           fd, ARG3, ARG4))
       return;
 
-#if defined(SOLARIS_PROC_CMDLINE)
+#if defined(HAVE_PROC_SELF_CMDLINE)
    if (handle_cmdline_open(status, (const HChar *) ARG2))
       return;
-#endif /* SOLARIS_PROC_CMDLINE */
+#endif /* HAVE_PROC_SELF_CMDLINE */
 
    *flags |= SfMayBlock;
 }

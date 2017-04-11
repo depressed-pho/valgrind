@@ -1989,13 +1989,14 @@ Int valgrind_main ( Int argc, HChar **argv, HChar **envp )
    VG_(cl_psinfo_fd) = -1;
 #endif
 
-#if defined(VGO_linux) || defined(VGO_solaris)
+#if defined(HAVE_PROC_SELF_CMDLINE) || defined(HAVE_PROC_SELF_AUXV) \
+    || defined(VGO_solaris)
    if (!need_help) {
       HChar  buf[50];   // large enough
       HChar  buf2[VG_(mkstemp_fullname_bufsz)(sizeof buf - 1)];
       Int    fd, r;
 
-#if defined(VGO_linux) || defined(SOLARIS_PROC_CMDLINE)
+#  if defined(HAVE_PROC_SELF_CMDLINE)
       /* Fake /proc/<pid>/cmdline only on Linux and Solaris if supported. */
       HChar  nul[1];
       const HChar* exename;
@@ -2028,8 +2029,9 @@ Int valgrind_main ( Int argc, HChar **argv, HChar **envp )
          VG_(err_config_error)("Can't delete client cmdline file in %s\n", buf2);
 
       VG_(cl_cmdline_fd) = fd;
-#endif // defined(VGO_linux) || defined(SOLARIS_PROC_CMDLINE)
+#  endif // defined(HAVE_PROC_SELF_CMDLINE)
 
+#  if defined(HAVE_PROC_SELF_AUXV)
       /* Fake /proc/<pid>/auxv on both Linux and Solaris. */
       VG_(debugLog)(1, "main", "Create fake /proc/<pid>/auxv\n");
 
@@ -2059,8 +2061,9 @@ Int valgrind_main ( Int argc, HChar **argv, HChar **envp )
          VG_(err_config_error)("Can't delete client auxv file in %s\n", buf2);
 
       VG_(cl_auxv_fd) = fd;
+#  endif // defined(HAVE_PROC_SELF_AUXV)
 
-#if defined(VGO_solaris)
+#  if defined(VGO_solaris)
       /* Fake /proc/<pid>/psinfo on Solaris.
        * Contents will be fetched and partially faked later on the fly. */
       VG_(debugLog)(1, "main", "Create fake /proc/<pid>/psinfo\n");
@@ -2076,9 +2079,10 @@ Int valgrind_main ( Int argc, HChar **argv, HChar **envp )
          VG_(err_config_error)("Can't delete client psinfo file in %s\n", buf2);
 
       VG_(cl_psinfo_fd) = fd;
-#endif /* VGO_solaris */
+#  endif /* VGO_solaris */
    }
-#endif
+#endif /* defined(HAVE_PROC_SELF_CMDLINE) || defined(HAVE_PROC_SELF_AUXV) \
+          || defined(VGO_solaris) */
 
    //--------------------------------------------------------------
    // Init tool part 1: pre_clo_init

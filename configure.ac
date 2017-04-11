@@ -1162,6 +1162,34 @@ AM_CONDITIONAL(VGCONF_PLATVARIANT_IS_ANDROID,
 # Check if we have F_GETPATH
 AC_CHECK_DECLS([F_GETPATH], [], [], [#include <fcntl.h>])
 
+# Check if we have /proc/self/cmdline
+AC_CHECK_FILE([/proc/self/cmdline], [
+   AC_DEFINE([HAVE_PROC_SELF_CMDLINE], 1, [Define to 1 if you have /proc/self/cmdline])
+])
+
+# Check if we have /proc/self/auxv
+AC_CHECK_FILE([/proc/self/auxv], [
+   AC_DEFINE([HAVE_PROC_SELF_AUXV], 1, [Define to 1 if you have /proc/self/auxv])
+])
+
+# Check if we have /proc/self/exe and it is a symbolic link.
+AC_MSG_CHECKING([if /proc/self/exe is a symbolic link])
+if test "x$cross_compiling" = xno -a -h /proc/self/exe; then
+   AC_MSG_RESULT([yes])
+   AC_DEFINE([HAVE_PROC_SELF_EXE], 1, [Define to 1 if you have /proc/self/exe])
+else
+   AC_MSG_RESULT([no])
+fi
+
+# Check if we have /proc/self/path/a.out and it is a symbolic link.
+AC_MSG_CHECKING([if /proc/self/path/a.out is a symbolic link])
+if test "x$cross_compiling" = xno -a -h /proc/self/path/a.out; then
+   AC_MSG_RESULT([yes])
+   AC_DEFINE([HAVE_PROC_SELF_PATH_A_OUT], 1, [Define to 1 if you have /proc/self/path/a.out])
+else
+   AC_MSG_RESULT([no])
+fi
+
 # Check if /proc/self/fd/{fd} is a symbolic link to an actual file
 
 AC_MSG_CHECKING([if /proc/self/fd/{fd} is a symbolic link])
@@ -2917,23 +2945,6 @@ CFLAGS=$safe_CFLAGS
 AC_SUBST(SOLARIS_UNDEF_LARGESOURCE)
 
 
-# Solaris-specific check determining if /proc/self/cmdline
-# or /proc/<pid>/cmdline is supported.
-#
-# C-level symbol: SOLARIS_PROC_CMDLINE
-# Automake-level symbol: SOLARIS_PROC_CMDLINE
-#
-AC_CHECK_FILE([/proc/self/cmdline],
-[
-solaris_proc_cmdline=yes
-AC_DEFINE([SOLARIS_PROC_CMDLINE], 1,
-          [Define to 1 if you have /proc/self/cmdline.])
-], [
-solaris_proc_cmdline=no
-])
-AM_CONDITIONAL(SOLARIS_PROC_CMDLINE, test x$solaris_proc_cmdline = xyes)
-
-
 # Solaris-specific check determining default platform for the Valgrind launcher.
 # Used in case the launcher cannot select platform by looking at the client
 # image (for example because the executable is a shell script).
@@ -3809,7 +3820,6 @@ AC_MSG_RESULT([no])
 else
 AM_CONDITIONAL(SOLARIS_SUN_STUDIO_AS, false)
 AM_CONDITIONAL(SOLARIS_XPG_SYMBOLS_PRESENT, false)
-AM_CONDITIONAL(SOLARIS_PROC_CMDLINE, false)
 AM_CONDITIONAL(SOLARIS_OLD_SYSCALLS, false)
 AM_CONDITIONAL(SOLARIS_LWP_SIGQUEUE_SYSCALL, false)
 AM_CONDITIONAL(SOLARIS_LWP_SIGQUEUE_SYSCALL_TAKES_PID, false)

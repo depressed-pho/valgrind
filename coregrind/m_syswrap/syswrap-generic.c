@@ -4062,7 +4062,7 @@ POST(sys_nanosleep)
       POST_MEM_WRITE( ARG2, sizeof(struct vki_timespec) );
 }
 
-#if defined(VGO_linux) || defined(VGO_solaris)
+#if defined(HAVE_PROC_SELF_AUXV)
 /* Handles the case where the open is of /proc/self/auxv or
    /proc/<pid>/auxv, and just gives out a copy of the fd for the
    fake file we cooked up at startup (in m_main).  Also, seeks the
@@ -4103,7 +4103,7 @@ Bool ML_(handle_auxv_open)(SyscallStatus *status, const HChar *filename,
 
    return True;
 }
-#endif // defined(VGO_linux) || defined(VGO_solaris)
+#endif // defined(HAVE_PROC_SELF_AUXV)
 
 PRE(sys_open)
 {
@@ -4120,7 +4120,7 @@ PRE(sys_open)
    }
    PRE_MEM_RASCIIZ( "open(filename)", ARG1 );
 
-#if defined(VGO_linux) || defined(VGO_netbsd)
+#if defined(HAVE_PROC_SELF_CMDLINE)
    /* Handle the case where the open is of /proc/self/cmdline or
       /proc/<pid>/cmdline, and just give it a copy of the fd for the
       fake file we cooked up at startup (in m_main).  Also, seek the
@@ -4143,13 +4143,13 @@ PRE(sys_open)
          return;
       }
    }
+#endif
 
-#  if !defined(VGO_netbsd)
+#if defined(HAVE_PROC_SELF_AUXV)
    /* Handle also the case of /proc/self/auxv or /proc/<pid>/auxv. */
    if (ML_(handle_auxv_open)(status, (const HChar *)ARG1, ARG2))
       return;
-#  endif
-#endif // defined(VGO_linux) || defined(VGO_netbsd)
+#endif
 
    /* Otherwise handle normally */
    *flags |= SfMayBlock;
@@ -4286,16 +4286,20 @@ PRE(sys_readlink)
 
 
    {
-#if defined(VGO_linux) || defined(VGO_solaris) || defined(VGO_netbsd)
-#if defined(VGO_linux) || defined(VGO_netbsd)
-#define PID_EXEPATH  "/proc/%d/exe"
-#define SELF_EXEPATH "/proc/self/exe"
-#define SELF_EXEFD   "/proc/self/fd/%d"
-#elif defined(VGO_solaris)
-#define PID_EXEPATH  "/proc/%d/path/a.out"
-#define SELF_EXEPATH "/proc/self/path/a.out"
-#define SELF_EXEFD   "/proc/self/path/%d"
-#endif
+#if defined(HAVE_PROC_SELF_EXE) || defined(HAVE_PROC_SELF_PATH_A_OUT)
+#  if defined(HAVE_PROC_SELF_EXE)
+#    define PID_EXEPATH  "/proc/%d/exe"
+#    define SELF_EXEPATH "/proc/self/exe"
+#    if defined(HAVE_SYMLINKS_IN_PROC_SELF_FD)
+#      define SELF_EXEFD "/proc/self/fd/%d"
+#    endif
+#  elif defined(HAVE_PROC_SELF_PATH_A_OUT)
+#    define PID_EXEPATH  "/proc/%d/path/a.out"
+#    define SELF_EXEPATH "/proc/self/path/a.out"
+#    if defined(HAVE_SYMLINKS_IN_PROC_SELF_PATH)
+#      define SELF_EXEFD "/proc/self/path/%d"
+#    endif
+#  endif
       /*
        * Handle the case where readlink is looking at /proc/self/exe or
        * /proc/<pid>/exe, or equivalent on Solaris.
@@ -4305,11 +4309,23 @@ PRE(sys_readlink)
       VG_(sprintf)(name, PID_EXEPATH, VG_(getpid)());
       if (ML_(safe_to_deref)(arg1s, 1)
           && (VG_STREQ(arg1s, name) || VG_STREQ(arg1s, SELF_EXEPATH))) {
+#  if defined(SELF_EXEFD)
+         /* We have a symlink to the executable in another
+          * location. Redirect the readlink call to it.
+          */
          VG_(sprintf)(name, SELF_EXEFD, VG_(cl_exec_fd));
          SET_STATUS_from_SysRes( VG_(do_syscall3)(saved, (UWord)name, 
                                                          ARG2, ARG3));
+#  else
+         /* XXX: In order to handle this case we need to save the
+          * absolute path to the executable at the startup so we can
+          * copy out it here, which means we need realpath(3) in our
+          * m_libcfile but we don't.
+          */
+         VG_(unimplemented)("readlink(2) call to `%s'", (char*)ARG1);
+#  endif
       } else
-#endif
+#endif /* defined(HAVE_PROC_SELF_EXE) || defined(HAVE_PROC_SELF_PATH_A_OUT) */
       {
          /* Normal case */
          SET_STATUS_from_SysRes( VG_(do_syscall3)(saved, ARG1, ARG2, ARG3));
